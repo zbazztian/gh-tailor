@@ -1,3 +1,3 @@
-#!/bin/sh
-echo "customize it!"
-echo "version 2"
+#!/usr/bin/env python3
+
+print('now coming from python...')
