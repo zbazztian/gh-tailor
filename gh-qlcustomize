@@ -1,3 +1,10 @@
-#!/usr/bin/env python3
+#!/bin/sh
+set -eu
 
-print('now coming from python...')
+pwd
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+echo $HERE
+
+
+#!/usr/bin/env python3
+#print('now coming from python...')
