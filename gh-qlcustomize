@@ -1,10 +1,11 @@
 #!/bin/sh
 set -eu
-
-pwd
 HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 echo $HERE
 
+if !(gh extension list | cut -d'	' -f 1 | grep "gh codeqlo"); then
+  echo "blorb"
+fi
 
 #!/usr/bin/env python3
 #print('now coming from python...')
