@@ -1,8 +1,5 @@
 #!/bin/sh
 set -eu
-
 HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-echo $HERE
-
 export PYTHONPATH="${HERE}:${HERE}/lib"
-exec python3 "${HERE}/cli.py"
+exec python3 "${HERE}/cli.py" $@

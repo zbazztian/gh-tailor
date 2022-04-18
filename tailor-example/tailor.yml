@@ -1,0 +1,5 @@
+inpack: codeql/java-queries
+outpack: zbazztian/customized-java-queries
+import:
+  module: com.github.zbazztian.Customizations
+  files: 'Security/CWE/CWE-*/*.ql'
