@@ -1,0 +1,7 @@
+name: "CodeQL config"
+disable-default-queries: true
+packs:
+  java:
+    - zbazztian/customized-java-queries
+#queries:
+  #- uses: ./.github/mypack/suite.qls

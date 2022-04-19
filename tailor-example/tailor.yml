@@ -2,4 +2,4 @@ inpack: codeql/java-queries
 outpack: zbazztian/customized-java-queries
 import:
   module: com.github.zbazztian.Customizations
-  files: 'Security/CWE/CWE-079/XSS.ql'
+  files: 'Security/CWE/CWE-022/TaintedPath.ql'
