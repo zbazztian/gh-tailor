@@ -4,7 +4,9 @@ import tempfile
 import glob
 import hashlib
 import subprocess
-from os.path import isfile, join, relpath, islink, isdir, exists, basename, abspath, dirname, expanduser
+from os.path import isfile, join, relpath, islink, \
+                    isdir, exists, basename, abspath, \
+                    dirname, expanduser, splitext
 import os
 import tarfile
 from datetime import datetime
@@ -16,12 +18,30 @@ import threading
 import semver
 
 
-def emptydir(dirpath):
-  if islink(dirpath) or isfile(dirpath):
-    os.remove(dirpath)
-  elif isdir(dirpath):
-    shutil.rmtree(dirpath)
-  os.makedirs(dirpath)
+def import_module(ppath, module, filepattern):
+  for fpath in glob.iglob(join(ppath, filepattern), recursive=True):
+    if isfile(fpath) and splitext(fpath)[1] in ['.ql', '.qll']:
+      with open(fpath, 'a') as f:
+        f.write('import %s' % (module))
+
+
+def add_versions(semver1, semver2):
+  semver1 = semver.VersionInfo.parse(semver1)
+  semver2 = semver.VersionInfo.parse(semver2)
+  return str(
+    semver.VersionInfo(
+      semver1.major + semver2.major,
+      semver1.minor + semver2.minor,
+      semver1.patch + semver2.patch,
+    )
+  )
+
+#def emptydir(dirpath):
+#  if islink(dirpath) or isfile(dirpath):
+#    os.remove(dirpath)
+#  elif isdir(dirpath):
+#    shutil.rmtree(dirpath)
+#  os.makedirs(dirpath)
 
 
 def error(msg):
@@ -172,35 +192,70 @@ class Executable:
         raise subprocess.CalledProcessError(cmd=commandstr, returncode=ret)
 
 
-def make_search_path_args(additional_packs, search_path):
-  args = []
-  if additional_packs:
-    args.append('--additional-packs')
-    args.append(additional_packs)
-  if search_path:
-    args.append('--search-path')
-    args.append(search_path)
-  return args
 
 
 class CodeQL(Executable):
 
-  def __init__(self, distdir):
+  def __init__(self, distdir, additional_packs=None, search_path=None):
     Executable.__init__(self, join(distdir, 'codeql'))
+    self.additional_packs = additional_packs
+    self.search_path = search_path
 
 
-  def list_packs(
-    self,
-    additional_packs=None,
-    search_path=None
-  ):
-    args = [
-      'resolve', 'qlpacks',
-      '--format', 'json',
-    ] + make_search_path_args(additional_packs, search_path)
+  def make_search_path_args(self):
+    args = []
+    if self.additional_packs:
+      args.append('--additional-packs')
+      args.append(self.additional_packs)
+    if self.search_path:
+      args.append('--search-path')
+      args.append(self.search_path)
+    return args
+
+
+  def publish(self, ppath, ignore_if_exists=False):
+    already_exists = set()
+
+    def errgobbler(cmd, stream):
+      while True:
+        line = stream.readline()
+        if line == '':
+          break
+        print(line, end='', flush=True)
+        if re.match(
+          ".*A fatal error occurred: Package '.*' already exists\..*",
+          line,
+        ):
+          already_exists.add(1)
+      stream.close()
+
+    try:
+      self(
+        'pack', 'publish',
+        '--threads', '0',
+        '-v',
+        *self.make_search_path_args(),
+        ppath,
+        combine_std_out_err=False,
+        errconsumer=errgobbler,
+      )
+    except subprocess.CalledProcessError as e:
+      if already_exists:
+        msg = 'Package already exists with the given version!'
+        if ignore_if_exists:
+          info(msg)
+        else:
+          error(msg)
+      else:
+        raise e
+
+
+  def list_packs(self):
     rec = Recorder()
     self(
-      *args,
+      'resolve', 'qlpacks',
+      '--format', 'json',
+      *self.make_search_path_args(),
       combine_std_out_err=False,
       outconsumer=rec,
     )
@@ -216,18 +271,10 @@ class CodeQL(Executable):
         yield p
 
 
-  def get_latest_pack(
-    self,
-    packname,
-    additional_packs=None,
-    search_path=None
-  ):
+  def get_latest_pack(self, packname):
     latestp = None
     latestv = None
-    for p in self.list_packs(
-      additional_packs=additional_packs,
-      search_path=search_path,
-    ):
+    for p in self.list_packs():
       if get_pack_name(p) == packname:
         v = semver.VersionInfo.parse(get_pack_version(p))
         if latestv is None or v.compare(latestv) > 0:
@@ -236,30 +283,18 @@ class CodeQL(Executable):
     return latestp
 
 
-  def download_pack(
-    self,
-    packname,
-    additional_packs=None,
-    search_path=None
-  ):
+  def download_pack(self, packname):
     rec = Recorder()
-    args = [
+    self(
       'pack', 'download',
       '--format', 'json',
-    ] + make_search_path_args(additional_packs, search_path)
-    args.append(packname)
-
-    self(
-      *args,
+      *self.make_search_path_args(),
+      packname,
       combine_std_out_err=False,
       outconsumer=rec,
     )
     j = json.loads(''.join(rec.lines))
-    return self.get_latest_pack(
-      packname,
-      additional_packs=additional_packs,
-      search_path=search_path
-    )
+    return self.get_latest_pack(packname)
 
 
 def is_dist(directory):
