@@ -1,6 +1,7 @@
 import java
 
-external predicate external_customization_settings(string key, string value);
+//external predicate external_customization_settings(string key, string value);
+predicate external_customization_settings(string key, string value){ none() }
 
 module Settings {
   bindingset[description]
