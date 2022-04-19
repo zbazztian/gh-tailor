@@ -5,6 +5,7 @@ from os.path import dirname, isfile, abspath, join, basename, isdir, exists
 import sys
 import tempfile
 import shutil
+import json
 
 
 def tailor(args):
@@ -16,11 +17,31 @@ def tailor(args):
       util.error('Output directory "%s" already exists!' % (args.out_dir))
 
   with tempfile.TemporaryDirectory(dir='.') as tempdir:
-    codeql = util.CodeQL(
-      '/home/sebastian/apps/codeql/2.8.5/',
-      additional_packs=args.additional_packs,
-      search_path=args.search_path,
-    )
+    distpath = None
+    if args.dist:
+      distpath = args.dist
+    else:
+      codeqlexec = shutil.which('codeql')
+      if codeqlexec:
+        rec = util.Recorder()
+        util.Executable(codeqlexec)(
+          'version',
+          '--format', 'json',
+          combine_std_out_err=False,
+          outconsumer=rec
+        )
+        j = json.loads(''.join(rec.lines))
+        distpath = j['unpackedLocation']
+
+    if distpath:
+      codeql = util.CodeQL(
+        distpath,
+        additional_packs=args.additional_packs,
+        search_path=args.search_path,
+      )
+    else:
+      util.error("Please provide the --dist argument or make sure the 'codeql' executable can be found in the PATH environment variable!")
+
 
     tailorpack = codeql.download_pack(args.tailor_pack)
     tailorinfo = util.get_tailor_info(tailorpack)

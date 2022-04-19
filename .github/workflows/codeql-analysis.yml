@@ -1,0 +1,41 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: ${{ matrix.language }}
+        #config-file: .github/config.yml
+        #packs: zbazztian/sebastians-query-pack
+        #queries: zbazztian/security-and-quality-extended/suites/default.qls@main
+
+    - name: build
+      run: |
+       cd java-test
+       javac Test.java
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
