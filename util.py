@@ -1,9 +1,9 @@
 import json
 import re
-import tempfile
-import glob
+from glob import iglob
 import hashlib
 import subprocess
+import itertools
 from os.path import isfile, join, relpath, islink, \
                     isdir, exists, basename, abspath, \
                     dirname, expanduser, splitext
@@ -16,10 +16,35 @@ import shutil
 import yaml
 import threading
 import semver
+import tempfile
+
+
+def hashstr(s):
+  sha1 = hashlib.sha1()
+  sha1.update(s.encode("utf-8"))
+  return sha1.hexdigest()
+
+
+class TempDir:
+  def __init__(self, keep=False, parentdir='.'):
+    self.keep = keep
+    self.parentdir = parentdir
+
+  def __enter__(self):
+    self.tmpdir = tempfile.mkdtemp(dir=self.parentdir)
+    return self.tmpdir
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    if not self.keep:
+      shutil.rmtree(self.tmpdir)
+
+
+def searchpath_prepend(searchpath, prependme):
+  return (prependme + ':' + searchpath) if searchpath else prependme
 
 
 def import_module(ppath, module, filepattern):
-  for fpath in glob.iglob(join(ppath, filepattern), recursive=True):
+  for fpath in iglob(join(ppath, filepattern), recursive=True):
     if isfile(fpath) and splitext(fpath)[1] in ['.ql', '.qll']:
       with open(fpath, 'a') as f:
         f.write('import %s' % (module))
@@ -36,13 +61,6 @@ def add_versions(semver1, semver2):
     )
   )
 
-#def emptydir(dirpath):
-#  if islink(dirpath) or isfile(dirpath):
-#    os.remove(dirpath)
-#  elif isdir(dirpath):
-#    shutil.rmtree(dirpath)
-#  os.makedirs(dirpath)
-
 
 def error(msg):
   sys.exit('ERROR: ' + msg)
@@ -50,6 +68,11 @@ def error(msg):
 
 def info(msg):
   print('INFO: ' + msg, flush=True)
+
+
+def file2bytes(filepath):
+  with open(filepath, 'rb') as f:
+    return f.read()
 
 
 def file2str(filepath):
@@ -66,8 +89,20 @@ def packyml(ppath):
   return join(ppath, 'qlpack.yml')
 
 
+def tailoryml(ppath):
+  return join(ppath, 'tailor.yml')
+
+
+def tailorchecksumyml(ppath):
+  return join(ppath, 'tailor-checksum.yml')
+
+
 def is_pack(ppath):
   return isfile(packyml(ppath))
+
+
+def is_tailorproject(ppath):
+  return isfile(tailoryml(ppath))
 
 
 def get_pack_info(ppath):
@@ -76,8 +111,91 @@ def get_pack_info(ppath):
 
 
 def get_tailor_info(ppath):
-  with open(join(ppath, 'tailor.yml'), 'r') as f:
+  with open(tailoryml(ppath), 'r') as f:
     return yaml.safe_load(f)
+
+
+def split_pack_version(packandversion):
+  r = packandversion.rsplit('@', 1)
+  if len(r) == 1:
+    return r + ['*']
+  return r
+
+
+def get_tailor_in(ppath):
+  ret = split_pack_version(get_tailor_info(ppath)['in'])
+  v = ret[1]
+  if v[0:2] in ('<=', '>='):
+    idx = 2
+  elif v[0:1] in '<>=':
+    idx = 1
+  else:
+    idx = 0
+  if v == '*' or semver.VersionInfo.isvalid(v[idx:]):
+    return ret
+  error('Invalid tailor in version: "%s". Only "*", match expressions or concrete versions (e.g. "1.0.0") are permitted!' % (v))
+
+
+def get_tailor_out(ppath):
+  ret = split_pack_version(get_tailor_info(ppath)['out'])
+  v = ret[1]
+  if v == '*' or semver.VersionInfo.isvalid(v):
+    return ret
+  error('Invalid tailor out version: "%s". Only "*" or concrete versions (e.g. "1.0.0") are permitted!' % (v))
+
+
+def get_tailor_deps(ppath):
+  return [split_pack_version(i) for i in get_tailor_info(ppath)['dependencies']]
+
+
+def get_tailor_imports(ppath):
+  return get_tailor_info(ppath)['imports']
+
+
+def get_tailor_checksum(ppath):
+  checksumfile = tailorchecksumyml(ppath)
+  if isfile(checksumfile):
+    with open(checksumfile, 'r') as f:
+      return yaml.safe_load(f)['value']
+  else:
+    return ''
+
+
+def sync_qlfiles(srcdir, dstdir):
+  for f in qlfiles(srcdir):
+    targetf = join(dstdir, relpath(f, srcdir))
+    os.makedirs(dirname(targetf), exist_ok=True)
+    shutil.copy(f, targetf)
+
+
+def qlfiles(directory):
+  for ext in ['ql', 'qll']:
+    for f in iglob(join(directory, '**/*' + ext), recursive=True):
+      if isfile(f):
+        yield f
+
+
+def calculate_tailor_content_checksum(ppath):
+  h = hashlib.sha1()
+  h.update(file2bytes(tailoryml(ppath)))
+  for q in sorted(qlfiles(ppath)):
+    h.update(file2bytes(q))
+  return h.hexdigest()
+
+
+def get_lock_deps(ppath):
+  with open(join(ppath, 'codeql-pack.lock.yml'), 'r') as f:
+    return yaml.safe_load(f)['dependencies']
+
+
+def write_tailor_checksum(outpack, inpack, ppath):
+  h = hashlib.sha1()
+  h.update(calculate_tailor_content_checksum(ppath).encode('utf-8'))
+  h.update(get_pack_version(inpack).encode('utf-8'))
+  for ld in get_lock_deps(outpack).items():
+    h.update((ld[0] + ':' + ld[1]['version']).encode('utf-8'))
+  with open(tailorchecksumyml(outpack), 'w') as f:
+    yaml.dump({'value': h.hexdigest()}, f)
 
 
 def set_pack_info(ppath, info):
@@ -192,12 +310,26 @@ class Executable:
         raise subprocess.CalledProcessError(cmd=commandstr, returncode=ret)
 
 
+def codeql_dist_from_path_env():
+  codeqlexec = shutil.which('codeql')
+  if codeqlexec:
+    rec = Recorder()
+    Executable(codeqlexec)(
+      'version',
+      '--format', 'json',
+      combine_std_out_err=False,
+      outconsumer=rec
+    )
+    return json.loads(''.join(rec.lines))['unpackedLocation']
+  else:
+    return None
 
 
 class CodeQL(Executable):
 
   def __init__(self, distdir, additional_packs=None, search_path=None):
     Executable.__init__(self, join(distdir, 'codeql'))
+    self.distdir = distdir
     self.additional_packs = additional_packs
     self.search_path = search_path
 
@@ -266,35 +398,64 @@ class CodeQL(Executable):
         yield v
 
     packcache = expanduser('~/.codeql/packages/**')
-    for p in glob.iglob(packcache, recursive=True):
+    for p in iglob(packcache, recursive=True):
       if is_pack(p):
         yield p
 
 
-  def get_latest_pack(self, packname):
+  def adjust_matchstr(self, matchstr):
+    if matchstr == '*':
+      return '>=0.0.0'
+    elif matchstr[0].isdigit():
+      return '==' + matchstr
+    elif matchstr[0] == '=' and matchstr[1].isdigit():
+      return '=' + matchstr
+    else:
+      return matchstr
+
+
+  def get_pack(self, packname, matchstr='*'):
     latestp = None
-    latestv = None
+    latestv = semver.VersionInfo(0, 0, 0)
     for p in self.list_packs():
       if get_pack_name(p) == packname:
         v = semver.VersionInfo.parse(get_pack_version(p))
-        if latestv is None or v.compare(latestv) > 0:
+        if v.match(self.adjust_matchstr(matchstr)) and v.compare(latestv) >= 0:
           latestv = v
           latestp = p
     return latestp
 
 
-  def download_pack(self, packname):
-    rec = Recorder()
-    self(
-      'pack', 'download',
-      '--format', 'json',
-      *self.make_search_path_args(),
-      packname,
-      combine_std_out_err=False,
-      outconsumer=rec,
-    )
-    j = json.loads(''.join(rec.lines))
-    return self.get_latest_pack(packname)
+  def download_pack(self, packname, matchstr='*'):
+    not_found = set()
+
+    def errgobbler(cmd, stream):
+      while True:
+        line = stream.readline()
+        if line == '':
+          break
+        print(line, end='', flush=True)
+        if re.match(
+          ".*A fatal error occurred: '.*' not found in the registry .*",
+          line,
+        ):
+          not_found.add(1)
+      stream.close()
+
+    try:
+      self(
+        'pack', 'download',
+        *self.make_search_path_args(),
+        packname + '@' + matchstr,
+        combine_std_out_err=False,
+        outconsumer=errgobbler
+      )
+    except subprocess.CalledProcessError as e:
+      if not_found:
+        return None
+      else:
+        raise e
+    return self.get_pack(packname, matchstr)
 
 
 def is_dist(directory):
@@ -306,8 +467,8 @@ def is_dist(directory):
 
 def copy2dir(srcpattern, dstdirpattern):
   executed = False
-  for srcfile in [s for s in glob.iglob(srcpattern, recursive=True)]:
-    for dstdir in [d for d in glob.iglob(join(self.distdir, dstdirpattern), recursive=True)]:
+  for srcfile in [s for s in iglob(srcpattern, recursive=True)]:
+    for dstdir in [d for d in iglob(join(self.distdir, dstdirpattern), recursive=True)]:
       if not isdir(dstdir):
         error('"%s" is not a directory!' % (dstdir))
       dstpath = join(dstdir, basename(srcfile))
@@ -323,7 +484,7 @@ def copy2dir(srcpattern, dstdirpattern):
 
 def append(srcfile, dstfilepattern):
   executed = False
-  for dstfile in [d for d in glob.iglob(join(self.distdir, dstfilepattern), recursive=True)]:
+  for dstfile in [d for d in iglob(join(self.distdir, dstfilepattern), recursive=True)]:
     if not isfile(dstfile):
       error('"%s" is not a file!' % (dstfile))
     executed = True

@@ -1,5 +1,7 @@
-inpack: codeql/java-queries
-outpack: zbazztian/customized-java-queries
-import:
-  module: com.github.zbazztian.Customizations
-  files: 'Security/CWE/CWE-022/TaintedPath.ql'
+in: codeql/java-queries@>0.0.0
+out: zbazztian/customized-java-queries
+dependencies:
+  - zbazztian/java-tailor-base@>=0.0.1
+imports:
+  - module: tailor.Customizations
+    files: 'Security/CWE/CWE-022/TaintedPath.ql'

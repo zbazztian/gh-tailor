@@ -1,13 +1,12 @@
 import java
 
-//external predicate external_customization_settings(string key, string value);
-predicate external_customization_settings(string key, string value){ none() }
-
 module Settings {
   bindingset[description]
-  predicate parseTuple(string description, string key, string value) {
-    key = description.splitAt("|", 0) and
-    value = description.splitAt("|", 1)
+  predicate parse(string description, string key, string value) {
+    exists(int i | i = description.indexOf("=", 0, 0) |
+      key = description.prefix(i).trim() and
+      value = description.suffix(i + 1).trim()
+    )
   }
 
   abstract class Provider extends string {
@@ -17,35 +16,33 @@ module Settings {
     abstract predicate rows(string key, string value);
   }
 
-  class DefaultsProvider extends Provider {
-    DefaultsProvider() { this = "defaults" }
+  class DefaultSettings extends Provider {
+    DefaultSettings() { this = "default-settings" }
 
     abstract override predicate rows(string key, string value);
   }
 
-  class StaticProvider extends Provider {
-    StaticProvider() { this = "static" }
+  class ExternalSettings extends Provider {
+    ExternalSettings() { this = "external-settings" }
 
     abstract override predicate rows(string key, string value);
   }
 
-  final class ExternalProvider extends Provider {
-    ExternalProvider() { this = "external" }
+  class CompileTimeSettings extends Provider {
+    CompileTimeSettings() { this = "compile-time-settings" }
 
-    override predicate rows(string key, string value) {
-      external_customization_settings(key, value)
-    }
+    abstract override predicate rows(string key, string value);
   }
 
   string values(string key) { any(Provider p).rows(key, result) }
 
   string prioritizedValues(string key) {
-    if exists(ExternalProvider p | p.rows(key, _))
-    then any(ExternalProvider p).rows(key, result)
+    if exists(ExternalSettings s | s.rows(key, _))
+    then any(ExternalSettings s).rows(key, result)
     else (
-      if exists(StaticProvider p | p.rows(key, _))
-      then any(StaticProvider p).rows(key, result)
-      else any(DefaultsProvider p).rows(key, result)
+      if exists(CompileTimeSettings s | s.rows(key, _))
+      then any(CompileTimeSettings s).rows(key, result)
+      else any(DefaultSettings s).rows(key, result)
     )
   }
 }

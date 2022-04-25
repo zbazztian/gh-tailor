@@ -1,7 +1,0 @@
----
-dependencies:
-  zbazztian/java-tailor-base: '*'
-groups: java
-library: true
-name: zbazztian/tailor-example
-version: 0.0.7

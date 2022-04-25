@@ -1,21 +1,20 @@
 import com.github.customizations.Settings
 
 module CustomizationSettings {
-  class Defaults extends Settings::DefaultsProvider {
+  class Defaults extends Settings::DefaultSettings {
     override predicate rows(string key, string value) {
-      Settings::parseTuple([
-          "java.lenient_taintflow|false", "java.local_sources|false", "coalesced|default",
-          "coalesced2|default"
-        ], key, value)
+      key = "java.lenient_taintflow" and value = "false"
+      or
+      key = "java.local_sources" and value = "false"
     }
   }
 
   module java {
-    predicate lenient_taintflow() { Settings::prioritizedValues("java.lenient_taintflow") = "true" }
+    predicate lenient_taintflow_enabled() { Settings::prioritizedValues("java.lenient_taintflow") = "true" }
 
-    predicate local_sources() { Settings::prioritizedValues("java.local_sources") = "true" }
+    predicate local_sources_enabled() { Settings::prioritizedValues("java.local_sources") = "true" }
 
-    predicate taint_through_collections() {
+    predicate taint_through_collections_enabled() {
       Settings::prioritizedValues("java.taint_through_collections") = "true"
     }
 

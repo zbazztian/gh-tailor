@@ -3,8 +3,8 @@ import semmle.code.java.dataflow.FlowSources
 import semmle.code.java.dataflow.FlowSteps
 
 class LocalIsRemote extends RemoteFlowSource {
-  LocalIsRemote() { 
-    CustomizationSettings::java::local_sources() and
+  LocalIsRemote() {
+    CustomizationSettings::java::local_sources_enabled() and
     this instanceof LocalUserInput
   }
 
