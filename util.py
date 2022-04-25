@@ -70,6 +70,10 @@ def info(msg):
   print('INFO: ' + msg, flush=True)
 
 
+def warning(msg):
+  print('WARNING: ' + msg, flush=True)
+
+
 def file2bytes(filepath):
   with open(filepath, 'rb') as f:
     return f.read()
