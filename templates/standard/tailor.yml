@@ -1,0 +1,22 @@
+# inpack: the package you want to tailor
+# this may contain a version range, e.g.:
+# codeql/java-queries@>=0.0.1
+in: codeql/java-queries
+
+# outpack: the name of the resulting package
+# this may either contain a concrete version, e.g.:
+# myscope/my-package-name@1.0.0 or a an asterisk, e.g.:
+# codeql/java-queries@* in which case the version will
+# be "autobumped" if anything (contents, dependencies)
+# changes
+out: myscope/my-package-name
+
+# dependencies to inject into the outpack. May contain
+# version ranges after an '@' character.
+dependencies:
+  - zbazztian/java-tailor-base
+
+# import these modules into the specified .ql / .qll files
+imports:
+  - module: tailor.Customizations
+    files: 'Security/CWE/CWE-*/*.ql'
