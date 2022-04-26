@@ -1,14 +1,12 @@
 import argparse
 import util
 from util import error, warning, info
-import os
-from os.path import dirname, isfile, abspath, \
-                    join, basename, isdir, \
-                    exists
+from os.path import dirname, isfile, \
+                    join, isdir, \
+                    exists, abspath
 import sys
 import tempfile
 import shutil
-import json
 
 
 def get_codeql(args):
@@ -35,21 +33,22 @@ def check_project(args):
 
 
 def init_outpack(args, parentdir):
-  if args.out_dir and exists(args.out_dir):
-    if args.overwrite:
-      info('Clearing existing output directory "%s"...' % (args.out_dir))
-      shutil.rmtree(args.out_dir)
-    else:
-      error('Output directory "%s" already exists!' % (args.out_dir))
-    outpack = args.out_dir
+  if args.out_dir:
+    if exists(args.out_dir):
+      if args.overwrite:
+        info('Clearing existing output directory "%s"...' % (args.out_dir))
+        shutil.rmtree(args.out_dir)
+      else:
+        error('Output directory "%s" already exists!' % (args.out_dir))
+    return args.out_dir
   else:
-    outpack = join(parentdir, 'outpack')
+    return join(parentdir, 'outpack')
 
 
 def make(args):
   check_project(args)
 
-  with util.TempDir(parentdir='.', keep=False) as tempdir:
+  with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
     outpack = init_outpack(args, tempdir)
     codeql = get_codeql(args)
     autobump, peerpack = tailor(args, args.project, outpack, codeql)
@@ -66,7 +65,7 @@ def make(args):
 def publish(args):
   check_project(args)
 
-  with util.TempDir(parentdir='.', keep=False) as tempdir:
+  with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
     outpack = init_outpack(args, tempdir)
     codeql = get_codeql(args)
     autobump, peerpack = tailor(args, args.project, outpack, codeql)
@@ -74,7 +73,7 @@ def publish(args):
     if peerpack:
       info('Comparing checksums of outpack and peerpack...')
       if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-        info('Versions and checksums of outpack and peerpack are identical. Nothing to do.')
+        info('Versions and checksums of outpack and peerpack are identical. Nothing left to do.')
         sys.exit(0)
       else:
         if not autobump:
@@ -89,7 +88,14 @@ def publish(args):
 
 
 def init(args):
-  pass
+  if util.is_tailorproject(args.project):
+    error('"%s" is already a project!' % (args.project))
+
+  shutil.copytree(
+    join(abspath(dirname(__file__)), 'templates', 'standard'),
+    args.project,
+    dirs_exist_ok=True,
+  )
 
 
 def tailor(args, project, outpack, codeql):
@@ -109,12 +115,11 @@ def tailor(args, project, outpack, codeql):
   else:
     info('peerpack: "%s"' % (peerpack))
 
-  info('Creating outpack...')
+  info('Creating outpack at "%s"...' % (outpack))
   shutil.copytree(
     inpack,
     outpack,
   )
-  info('outpack: "%s"' % (outpack))
 
   info('Removing previous pack artifacts from outpack...')
   dotcodeqldir = join(outpack, '.codeql')

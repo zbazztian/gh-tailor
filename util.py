@@ -25,20 +25,6 @@ def hashstr(s):
   return sha1.hexdigest()
 
 
-class TempDir:
-  def __init__(self, keep=False, parentdir='.'):
-    self.keep = keep
-    self.parentdir = parentdir
-
-  def __enter__(self):
-    self.tmpdir = tempfile.mkdtemp(dir=self.parentdir)
-    return self.tmpdir
-
-  def __exit__(self, exc_type, exc_value, traceback):
-    if not self.keep:
-      shutil.rmtree(self.tmpdir)
-
-
 def searchpath_prepend(searchpath, prependme):
   return (prependme + ':' + searchpath) if searchpath else prependme
 
@@ -452,13 +438,13 @@ class CodeQL(Executable):
         *self.make_search_path_args(),
         packname + '@' + matchstr,
         combine_std_out_err=False,
-        outconsumer=errgobbler
+        errconsumer=errgobbler
       )
     except subprocess.CalledProcessError as e:
       if not_found:
         return None
       else:
-        raise e
+        raise
     return self.get_pack(packname, matchstr)
 
 
