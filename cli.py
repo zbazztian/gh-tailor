@@ -32,7 +32,7 @@ def check_project(args):
     error('"%s" is not a valid project!' % (args.project))
 
 
-def init_outpack(args, parentdir):
+def init_outpack(args):
   if args.out_dir:
     if exists(args.out_dir):
       if args.overwrite:
@@ -42,49 +42,39 @@ def init_outpack(args, parentdir):
         error('Output directory "%s" already exists!' % (args.out_dir))
     return args.out_dir
   else:
-    return join(parentdir, 'outpack')
+    return join(tempdir, 'outpack')
 
 
 def make(args):
-  check_project(args)
+  autobump, codeql, outpack, peerpack = tailor(args)
 
-  with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
-    outpack = init_outpack(args, tempdir)
-    codeql = get_codeql(args)
-    autobump, peerpack = tailor(args, args.project, outpack, codeql)
-
-    if peerpack:
-      info('Comparing checksums of outpack and peerpack...')
-      if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-        warning('Versions and checksums of outpack and peerpack are identical. An upload would not change the functionality.')
-      else:
-        if not autobump:
-          warning('Upload would fail because checksums of outpack and peerpack differ, yet versions are identical!')
+  if peerpack:
+    info('Comparing checksums of outpack and peerpack...')
+    if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
+      warning('Versions and checksums of outpack and peerpack are identical. An upload would not change the functionality.')
+    else:
+      if not autobump:
+        warning('Upload would fail because checksums of outpack and peerpack differ, yet versions are identical!')
 
 
 def publish(args):
-  check_project(args)
+  autobump, codeql, outpack, peerpack = tailor(args)
 
-  with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
-    outpack = init_outpack(args, tempdir)
-    codeql = get_codeql(args)
-    autobump, peerpack = tailor(args, args.project, outpack, codeql)
+  if peerpack:
+    info('Comparing checksums of outpack and peerpack...')
+    if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
+      info('Versions and checksums of outpack and peerpack are identical. Nothing left to do.')
+      sys.exit(0)
+    else:
+      if not autobump:
+        error('Upload will fail because checksums of outpack and peerpack differ, yet versions are identical!')
 
-    if peerpack:
-      info('Comparing checksums of outpack and peerpack...')
-      if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-        info('Versions and checksums of outpack and peerpack are identical. Nothing left to do.')
-        sys.exit(0)
-      else:
-        if not autobump:
-          error('Upload will fail because checksums of outpack and peerpack differ, yet versions are identical!')
-
-    codeql(
-      'pack', 'publish',
-      '--threads', '0',
-      '-vv',
-      outpack
-    )
+  codeql(
+    'pack', 'publish',
+    '--threads', '0',
+    '-vv',
+    outpack
+  )
 
 
 def init(args):
@@ -98,22 +88,28 @@ def init(args):
   )
 
 
-def tailor(args, project, outpack, codeql):
+def tailor(args):
+  check_project(args)
+
+  outpack = init_outpack(args)
+
+  codeql = get_codeql(args)
 
   info('Downloading inpack...')
-  tailor_in_name, tailor_in_version = util.get_tailor_in(project)
+  tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
   inpack = codeql.download_pack(tailor_in_name, tailor_in_version)
   if not inpack:
     error('inpack "%s" not found in registry!' % (tailor_in_name + '@' + tailor_in_version))
   info('inpack: "%s"' % (inpack))
 
   info('Downloading peerpack...')
-  tailor_out_name, tailor_out_version = util.get_tailor_out(project)
+  tailor_out_name, tailor_out_version = util.get_tailor_out(args.project)
   peerpack = codeql.download_pack(tailor_out_name, tailor_out_version)
   if not peerpack:
     info('No peerpack found.')
   else:
     info('peerpack: "%s"' % (peerpack))
+
 
   info('Creating outpack at "%s"...' % (outpack))
   shutil.copytree(
@@ -149,15 +145,20 @@ def tailor(args, project, outpack, codeql):
     outpack_version,
   )
 
+  default_suite = util.get_tailor_default_suite(args.project)
+  if default_suite:
+    info('Setting outpack default suite to "%s".' % (default_suite))
+    util.set_pack_defaultsuite(outpack, default_suite)
+
   info('Copying ql files to outpack...')
-  util.sync_qlfiles(project, outpack)
+  util.sync_qlfiles(args.project, outpack)
 
   info('Adding dependencies to outpack...')
-  for p, v in util.get_tailor_deps(project):
+  for p, v in util.get_tailor_deps(args.project):
     util.pack_add_dep(outpack, p, v)
 
   info('Perform imports on outpack...')
-  for ti in util.get_tailor_imports(project):
+  for ti in util.get_tailor_imports(args.project):
     util.import_module(
       outpack,
       ti['module'],
@@ -175,10 +176,10 @@ def tailor(args, project, outpack, codeql):
   util.write_tailor_checksum(
     outpack,
     inpack,
-    project,
+    args.project,
   )
 
-  return autobump, peerpack
+  return autobump, codeql, outpack, peerpack
 
 
 def main():
@@ -259,7 +260,10 @@ def main():
 
   parser.set_defaults(func=print_usage)
   args = parser.parse_args()
-  args.func(args)
+
+  global tempdir
+  with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
+    args.func(args)
 
 
 main()

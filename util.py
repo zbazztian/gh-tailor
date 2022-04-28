@@ -135,11 +135,15 @@ def get_tailor_out(ppath):
 
 
 def get_tailor_deps(ppath):
-  return [split_pack_version(i) for i in get_tailor_info(ppath)['dependencies']]
+  return [split_pack_version(i) for i in get_tailor_info(ppath).get('dependencies', [])]
 
 
 def get_tailor_imports(ppath):
-  return get_tailor_info(ppath)['imports']
+  return get_tailor_info(ppath).get('imports', [])
+
+
+def get_tailor_default_suite(ppath):
+  return get_tailor_info(ppath).get('defaultSuiteFile', None)
 
 
 def get_tailor_checksum(ppath):
@@ -217,6 +221,10 @@ def get_pack_version(ppath):
 
 def set_pack_version(ppath, version):
   return set_pack_value(ppath, 'version', version)
+
+
+def set_pack_defaultsuite(ppath, value):
+  set_pack_value(ppath, 'defaultSuiteFile', value)
 
 
 def pack_add_dep(ppath, name, version):

@@ -1,7 +1,8 @@
-in: codeql/java-queries@>0.0.0
+in: codeql/java-queries
 out: zbazztian/customized-java-queries
+defaultSuiteFile: codeql-suites/java-security-extended.qls
 dependencies:
-  - zbazztian/java-tailor-base@>=0.0.1
+  - zbazztian/java-tailor-base
 imports:
   - module: tailor.Customizations
     files: 'Security/CWE/CWE-022/TaintedPath.ql'

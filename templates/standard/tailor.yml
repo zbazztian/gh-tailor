@@ -11,12 +11,18 @@ in: codeql/java-queries
 # changes
 out: myscope/my-package-name
 
-# dependencies to inject into the outpack. May contain
+# Optional:
+# Set the default query suite of the pack
+defaultSuiteFile: codeql-suites/java-security-extended.qls
+
+# Optional:
+# Dependencies to inject into the outpack. May contain
 # version ranges after an '@' character.
 dependencies:
   - zbazztian/java-tailor-base
 
-# import these modules into the specified .ql / .qll files
+# Optional:
+# Import these modules into the specified .ql / .qll files
 imports:
   - module: tailor.Customizations
     files: 'Security/CWE/CWE-*/*.ql'
