@@ -33,7 +33,7 @@ def import_module(ppath, module, filepattern):
   for fpath in iglob(join(ppath, filepattern), recursive=True):
     if isfile(fpath) and splitext(fpath)[1] in ['.ql', '.qll']:
       with open(fpath, 'a') as f:
-        f.write('import %s' % (module))
+        f.write('\nimport %s' % (module))
 
 
 def add_versions(semver1, semver2):
