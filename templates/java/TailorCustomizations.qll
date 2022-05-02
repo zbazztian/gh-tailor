@@ -8,7 +8,7 @@ class MyTailorSettings extends Settings::Provider {
     this = 0
   }
 
-  override predicate rows(string key, string value) {
+  override predicate assign(string key, string value) {
     // INSERT YOUR SETTINGS HERE //
     // For example:
     //
