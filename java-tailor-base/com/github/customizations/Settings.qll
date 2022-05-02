@@ -9,40 +9,20 @@ module Settings {
     )
   }
 
-  abstract class Provider extends string {
+  abstract class Provider extends int {
     bindingset[this]
     Provider() { any() }
 
-    abstract predicate rows(string key, string value);
-  }
+    Provider getParent() { result = max(Provider p | p < this) }
 
-  class DefaultSettings extends Provider {
-    DefaultSettings() { this = "default-settings" }
+    predicate rows(string key, string value) {
+      if this.assign(key, _) then this.assign(key, value) else getParent().rows(key, value)
+    }
 
-    abstract override predicate rows(string key, string value);
-  }
-
-  class ExternalSettings extends Provider {
-    ExternalSettings() { this = "external-settings" }
-
-    abstract override predicate rows(string key, string value);
-  }
-
-  class CompileTimeSettings extends Provider {
-    CompileTimeSettings() { this = "compile-time-settings" }
-
-    abstract override predicate rows(string key, string value);
+    predicate assign(string key, string value) { none() }
   }
 
   string values(string key) { any(Provider p).rows(key, result) }
 
-  string prioritizedValues(string key) {
-    if exists(ExternalSettings s | s.rows(key, _))
-    then any(ExternalSettings s).rows(key, result)
-    else (
-      if exists(CompileTimeSettings s | s.rows(key, _))
-      then any(CompileTimeSettings s).rows(key, result)
-      else any(DefaultSettings s).rows(key, result)
-    )
-  }
+  string prioritizedValues(string key) { max(Provider p).rows(key, result) }
 }
