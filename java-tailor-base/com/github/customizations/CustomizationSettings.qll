@@ -18,10 +18,6 @@ module CustomizationSettings {
 
     predicate local_sources_enabled() { Settings::prioritizedValues("java.local_sources") = "true" }
 
-    predicate taint_through_collections_enabled() {
-      Settings::prioritizedValues("java.taint_through_collections") = "true"
-    }
-
     int min_hash_iterations() {
       result = max(Settings::prioritizedValues("java.min_hash_iterations").toInt())
     }
