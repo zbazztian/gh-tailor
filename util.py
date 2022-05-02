@@ -105,8 +105,30 @@ def get_tailor_info(ppath):
     return yaml.safe_load(f)
 
 
+def ensure_dict(dictornone):
+  if dictornone:
+    return dictornone
+  return {}
+
+
+def ensure_list(listornone):
+  if listornone:
+    return listornone
+  return []
+
+
+def get_tailor_in_or_out_pack(ppath, inorout):
+  packs = list(ensure_dict(get_tailor_info(ppath).get(inorout)).items())
+  kind = '%spack' % (inorout)
+  if len(packs) == 0:
+    error('No %s specified!' % (kind))
+  if len(packs) > 1:
+    error('Only one %s is allowed!' % (kind))
+  return packs[0]
+
+
 def get_tailor_in(ppath):
-  name, version = list(get_tailor_info(ppath)['in'].items())[0]
+  name, version = get_tailor_in_or_out_pack(ppath, 'in')
   if version[0:2] in ('<=', '>='):
     idx = 2
   elif version[0:1] in '<>=':
@@ -119,18 +141,18 @@ def get_tailor_in(ppath):
 
 
 def get_tailor_out(ppath):
-  name, version = list(get_tailor_info(ppath)['out'].items())[0]
+  name, version = get_tailor_in_or_out_pack(ppath, 'out')
   if version == '*' or semver.VersionInfo.isvalid(version):
     return name, version
   error('Invalid tailor outpack version: "%s". Only "*" or concrete versions (e.g. "1.0.0") are permitted!' % (version))
 
 
 def get_tailor_deps(ppath):
-  return get_tailor_info(ppath).get('dependencies', {})
+  return ensure_dict(get_tailor_info(ppath).get('dependencies'))
 
 
 def get_tailor_imports(ppath):
-  return get_tailor_info(ppath).get('imports', [])
+  return ensure_list(get_tailor_info(ppath).get('imports'))
 
 
 def get_tailor_default_suite(ppath):
