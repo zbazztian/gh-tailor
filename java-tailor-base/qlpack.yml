@@ -1,7 +1,7 @@
 ---
 library: true
 name: zbazztian/java-tailor-base
-version: 0.0.6
+version: 0.0.7
 groups: java
 dependencies:
   codeql/java-all: "*"
