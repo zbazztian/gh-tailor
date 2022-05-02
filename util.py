@@ -105,37 +105,28 @@ def get_tailor_info(ppath):
     return yaml.safe_load(f)
 
 
-def split_pack_version(packandversion):
-  r = packandversion.rsplit('@', 1)
-  if len(r) == 1:
-    return r + ['*']
-  return r
-
-
 def get_tailor_in(ppath):
-  ret = split_pack_version(get_tailor_info(ppath)['in'])
-  v = ret[1]
-  if v[0:2] in ('<=', '>='):
+  name, version = list(get_tailor_info(ppath)['in'].items())[0]
+  if version[0:2] in ('<=', '>='):
     idx = 2
-  elif v[0:1] in '<>=':
+  elif version[0:1] in '<>=':
     idx = 1
   else:
     idx = 0
-  if v == '*' or semver.VersionInfo.isvalid(v[idx:]):
-    return ret
-  error('Invalid tailor in version: "%s". Only "*", match expressions or concrete versions (e.g. "1.0.0") are permitted!' % (v))
+  if version == '*' or semver.VersionInfo.isvalid(version[idx:]):
+    return name, version
+  error('Invalid tailor inpack version: "%s". Only "*", match expressions or concrete versions (e.g. "1.0.0") are permitted!' % (version))
 
 
 def get_tailor_out(ppath):
-  ret = split_pack_version(get_tailor_info(ppath)['out'])
-  v = ret[1]
-  if v == '*' or semver.VersionInfo.isvalid(v):
-    return ret
-  error('Invalid tailor out version: "%s". Only "*" or concrete versions (e.g. "1.0.0") are permitted!' % (v))
+  name, version = list(get_tailor_info(ppath)['out'].items())[0]
+  if version == '*' or semver.VersionInfo.isvalid(version):
+    return name, version
+  error('Invalid tailor outpack version: "%s". Only "*" or concrete versions (e.g. "1.0.0") are permitted!' % (version))
 
 
 def get_tailor_deps(ppath):
-  return [split_pack_version(i) for i in get_tailor_info(ppath).get('dependencies', [])]
+  return get_tailor_info(ppath).get('dependencies', {})
 
 
 def get_tailor_imports(ppath):
@@ -155,10 +146,12 @@ def get_tailor_checksum(ppath):
     return ''
 
 
-def sync_qlfiles(srcdir, dstdir):
+def sync_qlfiles(srcdir, dstdir, clobber=False):
   for f in qlfiles(srcdir):
     targetf = join(dstdir, relpath(f, srcdir))
     os.makedirs(dirname(targetf), exist_ok=True)
+    if exists(targetf) and not clobber:
+      error('File "%s" overwrites file "%s"!' % (f, targetf))
     shutil.copy(f, targetf)
 
 
@@ -186,8 +179,8 @@ def write_tailor_checksum(outpack, inpack, ppath):
   h = hashlib.sha1()
   h.update(calculate_tailor_content_checksum(ppath).encode('utf-8'))
   h.update(get_pack_version(inpack).encode('utf-8'))
-  for ld in get_lock_deps(outpack).items():
-    h.update((ld[0] + ':' + ld[1]['version']).encode('utf-8'))
+  for name, props in get_lock_deps(outpack).items():
+    h.update((name + ':' + props['version']).encode('utf-8'))
   with open(tailorchecksumyml(outpack), 'w') as f:
     yaml.dump({'value': h.hexdigest()}, f)
 

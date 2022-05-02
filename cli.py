@@ -82,7 +82,7 @@ def init(args):
     error('"%s" is already a project!' % (args.project))
 
   shutil.copytree(
-    join(abspath(dirname(__file__)), 'templates', 'standard'),
+    join(abspath(dirname(__file__)), 'templates', 'java'),
     args.project,
     dirs_exist_ok=True,
   )
@@ -154,8 +154,8 @@ def tailor(args):
   util.sync_qlfiles(args.project, outpack)
 
   info('Adding dependencies to outpack...')
-  for p, v in util.get_tailor_deps(args.project):
-    util.pack_add_dep(outpack, p, v)
+  for name, version in util.get_tailor_deps(args.project).items():
+    util.pack_add_dep(outpack, name, version)
 
   info('Perform imports on outpack...')
   for ti in util.get_tailor_imports(args.project):
