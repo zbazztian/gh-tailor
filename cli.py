@@ -9,6 +9,11 @@ import tempfile
 import shutil
 
 
+UPLOAD_WILL_SUCCEED = 0
+UPLOAD_NOT_NECESSARY = 2
+UPLOAD_WILL_FAIL = 3
+
+
 def get_codeql(args):
   info('Detecting CodeQL distribution...')
   distdir = args.dist or util.codeql_dist_from_path_env()
@@ -33,48 +38,39 @@ def check_project(args):
 
 
 def init_outpack(args):
-  if args.out_dir:
-    if exists(args.out_dir):
+  if args.outdir:
+    if exists(args.outdir):
       if args.overwrite:
-        info('Clearing existing output directory "%s"...' % (args.out_dir))
-        shutil.rmtree(args.out_dir)
+        info('Clearing existing output directory "%s"...' % (args.outdir))
+        shutil.rmtree(args.outdir)
       else:
-        error('Output directory "%s" already exists!' % (args.out_dir))
-    return args.out_dir
+        error('Output directory "%s" already exists!' % (args.outdir))
+    return args.outdir
   else:
     return join(tempdir, 'outpack')
 
 
-def make(args):
-  autobump, codeql, outpack, peerpack = tailor(args)
-
-  if peerpack:
-    info('Comparing checksums of outpack and peerpack...')
-    if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-      warning('Versions and checksums of outpack and peerpack are identical. An upload would not change the functionality.')
-    else:
-      if not autobump:
-        warning('Upload would fail because checksums of outpack and peerpack differ, yet versions are identical!')
-
-
-def publish(args):
-  autobump, codeql, outpack, peerpack = tailor(args)
-
-  if peerpack:
-    info('Comparing checksums of outpack and peerpack...')
-    if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-      info('Versions and checksums of outpack and peerpack are identical. Nothing left to do.')
-      sys.exit(0)
-    else:
-      if not autobump:
-        error('Upload will fail because checksums of outpack and peerpack differ, yet versions are identical!')
+def create(args):
+  state, codeql, outpack, peerpack = sketch(args)
 
   codeql(
-    'pack', 'publish',
+    'pack', 'create',
     '--threads', '0',
     '-vv',
     outpack
   )
+
+
+def publish(args):
+  state, codeql, outpack, peerpack = sketch(args)
+
+  if state != UPLOAD_NOT_NECESSARY:
+    codeql(
+      'pack', 'publish',
+      '--threads', '0',
+      '-vv',
+      outpack
+    )
 
 
 def init(args):
@@ -88,7 +84,7 @@ def init(args):
   )
 
 
-def tailor(args):
+def sketch(args):
   check_project(args)
 
   outpack = init_outpack(args)
@@ -179,7 +175,22 @@ def tailor(args):
     args.project,
   )
 
-  return autobump, codeql, outpack, peerpack
+  state = UPLOAD_WILL_SUCCEED
+  if peerpack:
+    info('Comparing checksums of outpack and peerpack...')
+    if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
+      info('Checksums are identical.')
+      state = UPLOAD_NOT_NECESSARY
+    else:
+      info('Checksums differ.')
+      if not autobump:
+        warning('Upload will fail because checksums of outpack and peerpack differ, yet versions are identical!')
+        state = UPLOAD_WILL_FAIL
+
+  if args.strict and state != UPLOAD_WILL_SUCCEED:
+    sys.exit(state)
+
+  return state, codeql, outpack, peerpack
 
 
 def main():
@@ -209,14 +220,22 @@ def main():
     help='Additional search path for QL packs',
   )
 
-  makebase = argparse.ArgumentParser(add_help=False)
-  makebase.add_argument(
-    '--out-dir',
+  strictbase = argparse.ArgumentParser(add_help=False)
+  strictbase.add_argument(
+    '--strict',
+    required=False,
+    action='store_true',
+    help='Treat warnings as errors.',
+  )
+
+  sketchbase = argparse.ArgumentParser(add_help=False)
+  sketchbase.add_argument(
+    '--outdir',
     required=False,
     default=None,
     help='Directory in which to store the resulting CodeQL pack',
   )
-  makebase.add_argument(
+  sketchbase.add_argument(
     '--overwrite',
     required=False,
     action='store_true',
@@ -239,17 +258,25 @@ def main():
   )
   initparser.set_defaults(func=init)
 
-  makeparser = subparsers.add_parser(
-    'make',
-    parents=[makebase, distbase, projectbase],
-    help='Create a customized package',
-    description='Create a customized package and drop it into a specified directory.',
+  sketchparser = subparsers.add_parser(
+    'sketch',
+    parents=[strictbase, sketchbase, distbase, projectbase],
+    help='Generate a customized, uncompiled package',
+    description='Generate a customized, uncompiled package and drop it into a specified directory.',
   )
-  makeparser.set_defaults(func=make)
+  sketchparser.set_defaults(func=sketch)
+
+  createparser = subparsers.add_parser(
+    'create',
+    parents=[strictbase, sketchbase, distbase, projectbase],
+    help='Create a customized, compiled package',
+    description='Generate a customized, compiled package and drop it into a specified directory.',
+  )
+  createparser.set_defaults(func=create)
 
   publishparser = subparsers.add_parser(
     'publish',
-    parents=[makebase, distbase, projectbase],
+    parents=[strictbase, sketchbase, distbase, projectbase],
     help='Create a customized package and publish it',
     description='Create a customized package and publish it.',
   )
