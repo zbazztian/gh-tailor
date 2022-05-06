@@ -179,7 +179,7 @@ def sketch(args):
   if peerpack:
     info('Comparing checksums of outpack and peerpack...')
     if util.get_tailor_checksum(outpack) == util.get_tailor_checksum(peerpack):
-      info('Checksums are identical.')
+      info('Checksums are identical. An upload is not necessary.')
       state = UPLOAD_NOT_NECESSARY
     else:
       info('Checksums differ.')
