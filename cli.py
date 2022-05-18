@@ -194,6 +194,8 @@ def sketch(args):
 
 
 def main():
+  print(util.pack_hash(sys.argv[1]))
+  return
 
   projectbase = argparse.ArgumentParser(add_help=False)
   projectbase.add_argument(

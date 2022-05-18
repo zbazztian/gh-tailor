@@ -1,4 +1,6 @@
 import json
+import pprint
+import queue
 import re
 from glob import iglob
 import hashlib
@@ -182,6 +184,66 @@ def qlfiles(directory):
     for f in iglob(join(directory, '**/*' + ext), recursive=True):
       if isfile(f):
         yield f
+
+
+def listdir(dirpath):
+  dirs = queue.Queue()
+  dirs.put(dirpath)
+  while not dirs.empty():
+    d = dirs.get()
+    for f in sorted(os.listdir(d)):
+      absf = join(d, f)
+      if isdir(absf):
+        dirs.put(absf)
+      yield absf
+
+
+def dir_hash(dirpath):
+  def file_hash(path, h):
+    if islink(path):
+      h.update(b'link')
+      h.update(
+        os.readlink(path).encode('utf-8')
+      )
+    elif isfile(path):
+      h.update(b'file')
+
+      if basename(path) == 'qlpack.yml':
+        with open(path, 'r') as f:
+          y = yaml.safe_load(f) or {}
+          y.get('buildMetadata', {}) \
+           .pop('creationTime', None)
+          h.update(
+            pprint.pformat(
+              y,
+              sort_dicts=True,
+              indent=1
+            ).encode('utf-8')
+          )
+      else:
+        with open(path, 'rb') as f:
+          while True:
+            bs = f.read(4096)
+            if bs == b'':
+              break
+            h.update(bs)
+    elif isdir(path):
+      h.update(b'directory')
+    else:
+      error('Unexpected file type for "%s"!' % (path))
+
+  h = hashlib.sha1()
+  for f in listdir(dirpath):
+    file_hash(f, h)
+    h.update(relpath(f, dirpath).encode('utf-8'))
+  return h.hexdigest()
+
+
+def pack_hash(ppath):
+  subpack = join(ppath, '.codeql', 'pack')
+  if isdir(subpack):
+    return dir_hash(subpack)
+  return dir_hash(ppath)
 
 
 def calculate_tailor_content_checksum(ppath):
