@@ -62,11 +62,6 @@ def warning(msg):
   print('WARNING: ' + msg, flush=True)
 
 
-def file2bytes(filepath):
-  with open(filepath, 'rb') as f:
-    return f.read()
-
-
 def file2str(filepath):
   with open(filepath, 'r') as f:
     return f.read()
@@ -83,10 +78,6 @@ def packyml(ppath):
 
 def tailoryml(ppath):
   return join(ppath, 'tailor.yml')
-
-
-def tailorchecksumyml(ppath):
-  return join(ppath, 'tailor-checksum.yml')
 
 
 def is_pack(ppath):
@@ -161,15 +152,6 @@ def get_tailor_default_suite(ppath):
   return get_tailor_info(ppath).get('defaultSuiteFile', None)
 
 
-def get_tailor_checksum(ppath):
-  checksumfile = tailorchecksumyml(ppath)
-  if isfile(checksumfile):
-    with open(checksumfile, 'r') as f:
-      return yaml.safe_load(f)['value']
-  else:
-    return ''
-
-
 def sync_qlfiles(srcdir, dstdir, clobber=False):
   for f in qlfiles(srcdir):
     targetf = join(dstdir, relpath(f, srcdir))
@@ -213,6 +195,7 @@ def dir_hash(dirpath):
           y = yaml.safe_load(f) or {}
           y.get('buildMetadata', {}) \
            .pop('creationTime', None)
+          y.pop('version', None)
           h.update(
             pprint.pformat(
               y,
@@ -239,34 +222,28 @@ def dir_hash(dirpath):
   return h.hexdigest()
 
 
+def subpack(ppath):
+  res = join(
+    ppath,
+    '.codeql',
+    'pack',
+    get_pack_name(ppath),
+    get_pack_version(ppath)
+  )
+  if isdir(res):
+    return res
+  return None
+
+
 def pack_hash(ppath):
-  subpack = join(ppath, '.codeql', 'pack')
-  if isdir(subpack):
-    return dir_hash(subpack)
+  sp = subpack(ppath)
+  if sp:
+    return dir_hash(sp)
   return dir_hash(ppath)
 
 
-def calculate_tailor_content_checksum(ppath):
-  h = hashlib.sha1()
-  h.update(file2bytes(tailoryml(ppath)))
-  for q in sorted(qlfiles(ppath)):
-    h.update(file2bytes(q))
-  return h.hexdigest()
-
-
-def get_lock_deps(ppath):
-  with open(join(ppath, 'codeql-pack.lock.yml'), 'r') as f:
-    return yaml.safe_load(f)['dependencies']
-
-
-def write_tailor_checksum(outpack, inpack, ppath):
-  h = hashlib.sha1()
-  h.update(calculate_tailor_content_checksum(ppath).encode('utf-8'))
-  h.update(get_pack_version(inpack).encode('utf-8'))
-  for name, props in get_lock_deps(outpack).items():
-    h.update((name + ':' + props['version']).encode('utf-8'))
-  with open(tailorchecksumyml(outpack), 'w') as f:
-    yaml.dump({'value': h.hexdigest()}, f)
+def cmp_packs(ppath1, ppath2):
+  return pack_hash(ppath1) == pack_hash(ppath2)
 
 
 def set_pack_info(ppath, info):
@@ -308,6 +285,12 @@ def pack_add_dep(ppath, name, version):
   deps = get_pack_value(ppath, 'dependencies')
   deps[name] = version
   set_pack_value(ppath, 'dependencies', deps)
+
+
+def clean_pack(ppath):
+  dotcodeqldir = join(ppath, '.codeql')
+  if isdir(dotcodeqldir):
+    shutil.rmtree(dotcodeqldir)
 
 
 def print_to_stdout(cmd, stream):
@@ -418,6 +401,57 @@ class CodeQL(Executable):
       args.append('--search-path')
       args.append(self.search_path)
     return args
+
+
+  def autobump(self, ppath):
+    peerpack = self.download_pack(
+      get_pack_name(ppath),
+      '*'
+    )
+    set_pack_version(
+      ppath,
+      add_versions(
+        get_pack_version(peerpack) if peerpack else '0.0.0',
+        '0.0.1',
+      )
+    )
+
+
+  def can_upload(self, ppath, autobump):
+    pack_name = get_pack_name(ppath)
+    pack_version = get_pack_version(ppath)
+
+    if autobump:
+      peerpack = self.download_pack(
+        pack_name,
+        '*'
+      )
+      return not peerpack or (
+             not cmp_packs(ppath, peerpack) and
+             pack_version != get_pack_version(peerpack)
+      )
+    else:
+      return not self.download_pack(
+        pack_name,
+        pack_version
+      )
+
+
+  def install(self, ppath):
+    self(
+      'pack', 'install',
+      '--mode', 'update',
+      ppath
+    )
+
+
+  def create(self, ppath):
+    self(
+      'pack', 'create',
+      '--threads', '0',
+      '-vv',
+      ppath
+    )
 
 
   def publish(self, ppath, ignore_if_exists=False):
