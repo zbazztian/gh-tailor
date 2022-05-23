@@ -103,9 +103,6 @@ def publish(args):
     for name in os.listdir(subpack):
       tarf.add(join(subpack, name), arcname=name, recursive=True)
 
-  #import time
-  #time.sleep(100000)
-
   codeql(
     'pack', 'publish',
     '-vv',
