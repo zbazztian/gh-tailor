@@ -270,7 +270,7 @@ def main():
 
   publishparser = subparsers.add_parser(
     'publish',
-    parents=[strictbase, distbase, packbase],
+    parents=[distbase, packbase],
     help='Publish a compiled CodeQL pack.',
     description='Publish a compiled CodeQL pack.',
   )
