@@ -14,7 +14,9 @@ import tarfile
 
 def get_codeql(args):
   info('Detecting CodeQL distribution...')
-  distdir = args.dist or util.codeql_dist_from_path_env()
+  distdir = args.dist or \
+            util.codeql_dist_from_path_env() or \
+            util.codeql_dist_from_gh_codeql()
   if not distdir:
     error(
       "Please provide the --dist argument or make sure the 'codeql' " +

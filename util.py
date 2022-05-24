@@ -251,8 +251,8 @@ def set_pack_info(ppath, info):
     yaml.dump(info, f)
 
 
-def get_pack_value(ppath, key):
-  return get_pack_info(ppath)[key]
+def get_pack_value(ppath, key, default=None):
+  return get_pack_info(ppath).get(key, default)
 
 
 def set_pack_value(ppath, key, value):
@@ -270,7 +270,7 @@ def set_pack_name(ppath, name):
 
 
 def get_pack_version(ppath):
-  return get_pack_value(ppath, 'version')
+  return get_pack_value(ppath, 'version', '0.0.0')
 
 
 def set_pack_version(ppath, version):
@@ -373,6 +373,22 @@ def codeql_dist_from_path_env():
   if codeqlexec:
     rec = Recorder()
     Executable(codeqlexec)(
+      'version',
+      '--format', 'json',
+      combine_std_out_err=False,
+      outconsumer=rec
+    )
+    return json.loads(''.join(rec.lines))['unpackedLocation']
+  else:
+    return None
+
+
+def codeql_dist_from_gh_codeql():
+  ghexec = shutil.which('gh')
+  if ghexec:
+    rec = Recorder()
+    Executable(ghexec)(
+      'codeql',
       'version',
       '--format', 'json',
       combine_std_out_err=False,
