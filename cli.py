@@ -240,7 +240,7 @@ def main():
   )
   makeparser.add_argument(
     '--outdir',
-    required=False,
+    required=True,
     default=None,
     help='Directory in which to store the resulting CodeQL pack',
   )
