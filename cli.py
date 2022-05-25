@@ -64,55 +64,7 @@ def init(args):
   )
 
 
-def compile(args):
-  codeql = get_codeql(args)
-
-  if not util.is_pack(args.pack):
-    error('"%s" is not a (Code)QL pack!' % args.pack)
-
-  outpack = args.pack
-
-  info('Removing previous pack artifacts from outpack...')
-  util.clean_pack(outpack)
-
-  autobump = args.autobump
-  if autobump:
-    codeql.autobump(outpack)
-
-  info('Installing pack dependencies...')
-  codeql.install(outpack)
-
-  info('Building pack...')
-  codeql.create(outpack)
-
-  check_uploadability(codeql, outpack, autobump, args.strict)
-
-
-def publish(args):
-  codeql = get_codeql(args)
-
-  if not util.is_pack(args.pack):
-    error('"%s" is not a (Code)QL pack!' % args.pack)
-
-  outpack = args.pack
-
-  subpack = util.subpack(outpack)
-  if not subpack:
-    error('"%s" was not compiled!' % outpack)
-
-  out = join(tempdir, 'pack.tgz')
-  with tarfile.open(out, 'w:gz') as tarf:
-    for name in os.listdir(subpack):
-      tarf.add(join(subpack, name), arcname=name, recursive=True)
-
-  codeql(
-    'pack', 'publish',
-    '-vv',
-    '--file', out
-  )
-
-
-def create(args):
+def make(args):
   check_project(args)
 
   outpack = init_outpack(args)
@@ -171,13 +123,53 @@ def create(args):
       ti['files'],
     )
 
-  info('Installing outpack dependencies...')
+
+def compile(args):
+  codeql = get_codeql(args)
+
+  if not util.is_pack(args.pack):
+    error('"%s" is not a (Code)QL pack!' % args.pack)
+
+  outpack = args.pack
+
+  info('Removing previous pack artifacts from outpack...')
+  util.clean_pack(outpack)
+
+  autobump = args.autobump
+  if autobump:
+    codeql.autobump(outpack)
+
+  info('Installing pack dependencies...')
   codeql.install(outpack)
 
-  info('Building outpack...')
+  info('Building pack...')
   codeql.create(outpack)
 
   check_uploadability(codeql, outpack, autobump, args.strict)
+
+
+def publish(args):
+  codeql = get_codeql(args)
+
+  if not util.is_pack(args.pack):
+    error('"%s" is not a (Code)QL pack!' % args.pack)
+
+  outpack = args.pack
+
+  subpack = util.subpack(outpack)
+  if not subpack:
+    error('"%s" was not compiled!' % outpack)
+
+  out = join(tempdir, 'pack.tgz')
+  with tarfile.open(out, 'w:gz') as tarf:
+    for name in os.listdir(subpack):
+      tarf.add(join(subpack, name), arcname=name, recursive=True)
+
+  codeql(
+    'pack', 'publish',
+    '-vv',
+    '--file', out
+  )
 
 
 def main():
@@ -240,19 +232,19 @@ def main():
   )
   initparser.set_defaults(func=init)
 
-  createparser = subparsers.add_parser(
-    'create',
-    parents=[strictbase, distbase, projectbase],
-    help='Create a customized, compiled package from a tailor project',
-    description='Generate a customized, compiled package from a tailor project and drop it into a specified directory.',
+  makeparser = subparsers.add_parser(
+    'make',
+    parents=[distbase, projectbase],
+    help='Create a customized package from a tailor project',
+    description='Generate a customized package from a tailor project and drop it into a specified directory.',
   )
-  createparser.add_argument(
+  makeparser.add_argument(
     '--outdir',
     required=False,
     default=None,
     help='Directory in which to store the resulting CodeQL pack',
   )
-  createparser.set_defaults(func=create)
+  makeparser.set_defaults(func=make)
 
   compileparser = subparsers.add_parser(
     'compile',
