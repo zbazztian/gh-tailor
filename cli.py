@@ -37,13 +37,6 @@ def check_project(args):
     error('"%s" is not a valid project!' % (args.project))
 
 
-def check_uploadability(codeql, outpack, autobump, strict):
-  if not codeql.can_upload(outpack, autobump):
-    warning('Upload would fail!')
-    if strict:
-      sys.exit(2)
-
-
 def init_outpack(args):
   if args.outdir:
     if exists(args.outdir):
@@ -94,14 +87,12 @@ def make(args):
   util.set_pack_name(outpack, tailor_out_name)
 
   # set outpack version
-  autobump = tailor_out_version == '*'
-  if autobump:
-    codeql.autobump(outpack)
-  else:
-    util.set_pack_version(
-      outpack,
-      tailor_out_version,
-    )
+  util.set_pack_version(
+    outpack,
+    codeql.get_latest_version(tailor_out_name, '0.0.0') \
+    if tailor_out_version == '*' else \
+    tailor_out_version
+  )
 
   default_suite = util.get_tailor_default_suite(args.project)
   if default_suite:
@@ -135,17 +126,32 @@ def compile(args):
   info('Removing previous pack artifacts from outpack...')
   util.clean_pack(outpack)
 
-  autobump = args.autobump
-  if autobump:
-    codeql.autobump(outpack)
-
   info('Installing pack dependencies...')
   codeql.install(outpack)
 
   info('Building pack...')
   codeql.create(outpack)
 
-  check_uploadability(codeql, outpack, autobump, args.strict)
+
+  # check uploadability
+  peerpack = self.download_pack(
+    util.get_pack_name(outpack),
+    util.get_pack_version(outpack)
+  )
+  if peerpack:
+    info('A pack with this name and version already exists in the registry.')
+    identical = util.cmp_packs(peerpack, outpack)
+
+    if not args.autobump or identical:
+      warning('Upload would fail!')
+      if args.strict:
+        sys.exit(2)
+
+    if args.autobump and not(args.strict and identical):
+      info('Autobumping pack version...')
+      codeql.autobump(outpack)
+  else:
+    info("Pack doesn't yet exist in registry. Upload would succeed.")
 
 
 def publish(args):

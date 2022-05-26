@@ -419,38 +419,37 @@ class CodeQL(Executable):
     return args
 
 
+  def download_latest_pack(self, pname):
+    return self.download_pack(pname, '*')
+
+
+  def get_latest_version(self, pname, default=None):
+    lpack = self.download_latest_pack(pname)
+    return get_pack_version(lpack) if lpack else default
+
+
   def autobump(self, ppath):
-    peerpack = self.download_pack(
-      get_pack_name(ppath),
-      '*'
+    old_version = get_pack_version(ppath)
+    new_version = add_versions(
+      self.get_latest_version(get_pack_name(ppath), '0.0.0'),
+      '0.0.1',
     )
+
+    old_sp = subpack(ppath)
+    if old_sp:
+      set_pack_version(old_sp, new_version)
+
     set_pack_version(
       ppath,
-      add_versions(
-        get_pack_version(peerpack) if peerpack else '0.0.0',
-        '0.0.1',
-      )
+      new_version
     )
 
+    new_sp = subpack(ppath)
+    if new_sp:
+      shutil.rmtree(new_sp)
 
-  def can_upload(self, ppath, autobump):
-    pack_name = get_pack_name(ppath)
-    pack_version = get_pack_version(ppath)
-
-    if autobump:
-      peerpack = self.download_pack(
-        pack_name,
-        '*'
-      )
-      return not peerpack or (
-             not cmp_packs(ppath, peerpack) and
-             pack_version != get_pack_version(peerpack)
-      )
-    else:
-      return not self.download_pack(
-        pack_name,
-        pack_version
-      )
+    if old_sp:
+      shutil.move(old_sp, new_sp)
 
 
   def install(self, ppath):
