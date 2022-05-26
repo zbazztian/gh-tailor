@@ -20,7 +20,8 @@ def get_codeql(args):
   if not distdir:
     error(
       "Please provide the --dist argument or make sure the 'codeql' " +
-      "executable can be found via the PATH environment variable!"
+      "executable can be found via the PATH environment variable or " +
+      "install the 'codeql' extension for 'gh' (https://github.com/github/gh-codeql)."
     )
 
   codeql = util.CodeQL(
@@ -132,26 +133,44 @@ def compile(args):
   info('Building pack...')
   codeql.create(outpack)
 
+  # set version and check uploadability
+  outpack_name = util.get_pack_name(outpack)
+  if args.auto_version:
+    peerpack = codeql.download_latest_pack(outpack_name)
 
-  # check uploadability
-  peerpack = self.download_pack(
-    util.get_pack_name(outpack),
-    util.get_pack_version(outpack)
-  )
-  if peerpack:
-    info('A pack with this name and version already exists in the registry.')
-    identical = util.cmp_packs(peerpack, outpack)
-
-    if not args.autobump or identical:
-      warning('Upload would fail!')
+    if peerpack:
+      info(
+        'Initiating pack version to "%s" (latest version in registry)' % codeql.set_version(
+          outpack,
+          util.get_pack_version(peerpack)
+        )
+      )
+      if args.strict and util.cmp_packs(peerpack, outpack):
+        warning(
+          'Upload would fail since the latest pack in the ' +
+          'registry is identical to this pack!'
+        )
+        sys.exit(2)
+      else:
+        info(
+          ('Auto-bumped pack version to "%s", since this pack is different ' +
+          'from the latest one in the registry.') % codeql.bump_version(outpack)
+        )
+    else:
+      info(
+        ('Pack doesn\'t yet exist in registry. Upload would succeed. ' +
+        'Initiating pack version to "%s"') % codeql.set_version(outpack, '0.0.0')
+      )
+  else:
+    if codeql.download_pack(
+      outpack_name,
+      util.get_pack_version(outpack)
+    ):
+      warning('Upload would fail since a pack with this version already exists in the registry!')
       if args.strict:
         sys.exit(2)
-
-    if args.autobump and not(args.strict and identical):
-      info('Autobumping pack version...')
-      codeql.autobump(outpack)
-  else:
-    info("Pack doesn't yet exist in registry. Upload would succeed.")
+    else:
+      info("Pack doesn't yet exist in registry. Upload would succeed.")
 
 
 def publish(args):
@@ -259,7 +278,7 @@ def main():
     description='Compile a (Code)QL pack.',
   )
   compileparser.add_argument(
-    '--autobump',
+    '--auto-version',
     required=False,
     action='store_true',
     help='Bump the version of the pack before compilation.',

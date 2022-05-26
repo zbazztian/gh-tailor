@@ -7,8 +7,8 @@ in:
 # this may either contain a concrete version, e.g.:
 # myscope/my-package-name: '1.0.0' or a an asterisk, e.g.:
 # codeql/java-queries: '*' in which case the version will
-# be "autobumped" if anything (contents, dependencies)
-# changes
+# be set to the latest version of this package in the registry
+# if there exists one.
 out:
   myscope/my-package-name: '*'
 

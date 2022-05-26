@@ -195,7 +195,6 @@ def dir_hash(dirpath):
           y = yaml.safe_load(f) or {}
           y.get('buildMetadata', {}) \
            .pop('creationTime', None)
-          y.pop('version', None)
           h.update(
             pprint.pformat(
               y,
@@ -222,14 +221,18 @@ def dir_hash(dirpath):
   return h.hexdigest()
 
 
-def subpack(ppath):
-  res = join(
+def subpack_path(ppath):
+  return join(
     ppath,
     '.codeql',
     'pack',
     get_pack_name(ppath),
     get_pack_version(ppath)
   )
+
+
+def subpack(ppath):
+  res = subpack_path(ppath)
   if isdir(res):
     return res
   return None
@@ -428,12 +431,21 @@ class CodeQL(Executable):
     return get_pack_version(lpack) if lpack else default
 
 
-  def autobump(self, ppath):
-    old_version = get_pack_version(ppath)
+  def bump_version(self, ppath):
     new_version = add_versions(
-      self.get_latest_version(get_pack_name(ppath), '0.0.0'),
+      get_pack_version(ppath),
       '0.0.1',
     )
+    self.set_version(ppath, new_version)
+    return new_version
+
+
+  def set_version(self, ppath, version):
+    old_version = get_pack_version(ppath)
+    new_version = version
+
+    if old_version == new_version:
+      return old_version
 
     old_sp = subpack(ppath)
     if old_sp:
@@ -444,12 +456,14 @@ class CodeQL(Executable):
       new_version
     )
 
-    new_sp = subpack(ppath)
-    if new_sp:
+    new_sp = subpack_path(ppath)
+    if isdir(new_sp):
       shutil.rmtree(new_sp)
 
     if old_sp:
       shutil.move(old_sp, new_sp)
+
+    return new_version
 
 
   def install(self, ppath):
@@ -467,43 +481,6 @@ class CodeQL(Executable):
       '-vv',
       ppath
     )
-
-
-  def publish(self, ppath, ignore_if_exists=False):
-    already_exists = set()
-
-    def errgobbler(cmd, stream):
-      while True:
-        line = stream.readline()
-        if line == '':
-          break
-        print(line, end='', flush=True)
-        if re.match(
-          ".*A fatal error occurred: Package '.*' already exists\..*",
-          line,
-        ):
-          already_exists.add(1)
-      stream.close()
-
-    try:
-      self(
-        'pack', 'publish',
-        '--threads', '0',
-        '-v',
-        *self.make_search_path_args(),
-        ppath,
-        combine_std_out_err=False,
-        errconsumer=errgobbler,
-      )
-    except subprocess.CalledProcessError as e:
-      if already_exists:
-        msg = 'Package already exists with the given version!'
-        if ignore_if_exists:
-          info(msg)
-        else:
-          error(msg)
-      else:
-        raise e
 
 
   def list_packs(self):
