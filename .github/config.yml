@@ -2,4 +2,4 @@ name: "CodeQL config"
 disable-default-queries: true
 packs:
   java:
-    - zbazztian/customized-java-queries
+    - zbazztian/java-local-queries
