@@ -67,7 +67,10 @@ def make(args):
 
   info('Downloading inpack...')
   tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
-  inpack = codeql.download_pack(tailor_in_name, tailor_in_version)
+  if util.get_tailor_cli_compat(args.project):
+    inpack = codeql.download_compatible_pack(tailor_in_name, tailor_in_version)
+  else:
+    inpack = codeql.download_pack(tailor_in_name, tailor_in_version)
   if inpack:
     info('inpack: "%s"' % (inpack))
   else:

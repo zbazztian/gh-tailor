@@ -483,7 +483,7 @@ class CodeQL(Executable):
   def install(self, ppath):
     self(
       'pack', 'install',
-      '--mode', 'update',
+      '--mode', 'use-lock',
       ppath
     )
 
@@ -589,6 +589,7 @@ class CodeQL(Executable):
       rec = Recorder()
       self(
         'pack', 'download',
+        '--format', 'json',
         *self.make_search_path_args(),
         packname + '@' + matchstr,
         combine_std_out_err=False,
