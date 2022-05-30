@@ -18,7 +18,7 @@ import shutil
 import yaml
 import threading
 import semver
-import tempfile
+from semver import VersionInfo
 
 
 def hashstr(s):
@@ -38,16 +38,33 @@ def import_module(ppath, module, filepattern):
         f.write('\nimport %s' % (module))
 
 
-def add_versions(semver1, semver2):
-  semver1 = semver.VersionInfo.parse(semver1)
-  semver2 = semver.VersionInfo.parse(semver2)
+def add_versions(v1str, v2str):
+  semver1 = VersionInfo.parse(v1str)
+  semver2 = VersionInfo.parse(v2str)
   return str(
-    semver.VersionInfo(
+    VersionInfo(
       semver1.major + semver2.major,
       semver1.minor + semver2.minor,
       semver1.patch + semver2.patch,
     )
   )
+
+
+def match_version(versionstr, matchstr):
+  def adjust_matchstr(matchstr):
+    if matchstr == '*':
+      return '>=0.0.0'
+    elif matchstr[0].isdigit():
+      return '==' + matchstr
+    elif matchstr[0] == '=' and matchstr[1].isdigit():
+      return '=' + matchstr
+    else:
+      return matchstr
+  return VersionInfo.parse(versionstr).match(adjust_matchstr(matchstr))
+
+
+def compare_version(v1, v2):
+  return VersionInfo.parse(v1).compare(VersionInfo.parse(v2))
 
 
 def error(msg):
@@ -98,20 +115,8 @@ def get_tailor_info(ppath):
     return yaml.safe_load(f)
 
 
-def ensure_dict(dictornone):
-  if dictornone:
-    return dictornone
-  return {}
-
-
-def ensure_list(listornone):
-  if listornone:
-    return listornone
-  return []
-
-
 def get_tailor_in_or_out_pack(ppath, inorout):
-  packs = list(ensure_dict(get_tailor_info(ppath).get(inorout)).items())
+  packs = list((get_tailor_info(ppath).get(inorout) or {}).items())
   kind = '%spack' % (inorout)
   if len(packs) == 0:
     error('No %s specified!' % (kind))
@@ -128,24 +133,36 @@ def get_tailor_in(ppath):
     idx = 1
   else:
     idx = 0
-  if version == '*' or semver.VersionInfo.isvalid(version[idx:]):
+  if version == '*' or VersionInfo.isvalid(version[idx:]):
     return name, version
-  error('Invalid tailor inpack version: "%s". Only "*", match expressions or concrete versions (e.g. "1.0.0") are permitted!' % (version))
+  error(
+    ('Invalid tailor inpack version: "%s". ' +
+     'Only "*", match expressions or concrete versions ' +
+     '(e.g. "1.0.0") are permitted!') % (version)
+  )
+
+
+def get_tailor_cli_compat(ppath):
+  return get_tailor_info(ppath).get('cliCompatibility', False)
 
 
 def get_tailor_out(ppath):
   name, version = get_tailor_in_or_out_pack(ppath, 'out')
-  if version == '*' or semver.VersionInfo.isvalid(version):
+  if version == '*' or VersionInfo.isvalid(version):
     return name, version
-  error('Invalid tailor outpack version: "%s". Only "*" or concrete versions (e.g. "1.0.0") are permitted!' % (version))
+  error(
+    ('Invalid tailor outpack version: "%s". ' +
+      'Only "*" or concrete versions ' +
+      '(e.g. "1.0.0") are permitted!') % (version)
+  )
 
 
 def get_tailor_deps(ppath):
-  return ensure_dict(get_tailor_info(ppath).get('dependencies'))
+  return get_tailor_info(ppath).get('dependencies') or {}
 
 
 def get_tailor_imports(ppath):
-  return ensure_list(get_tailor_info(ppath).get('imports'))
+  return get_tailor_info(ppath).get('imports') or []
 
 
 def get_tailor_default_suite(ppath):
@@ -274,6 +291,12 @@ def set_pack_name(ppath, name):
 
 def get_pack_version(ppath):
   return get_pack_value(ppath, 'version', '0.0.0')
+
+
+def get_pack_cli_version(ppath, default='0.0.0'):
+  return get_pack_info(ppath) \
+           .get('buildMetadata', {}) \
+           .get('cliVersion', default)
 
 
 def set_pack_version(ppath, version):
@@ -422,15 +445,6 @@ class CodeQL(Executable):
     return args
 
 
-  def download_latest_pack(self, pname):
-    return self.download_pack(pname, '*')
-
-
-  def get_latest_version(self, pname, default=None):
-    lpack = self.download_latest_pack(pname)
-    return get_pack_version(lpack) if lpack else default
-
-
   def bump_version(self, ppath):
     new_version = add_versions(
       get_pack_version(ppath),
@@ -483,48 +497,76 @@ class CodeQL(Executable):
     )
 
 
-  def list_packs(self):
-    rec = Recorder()
-    self(
-      'resolve', 'qlpacks',
-      '--format', 'json',
-      *self.make_search_path_args(),
-      combine_std_out_err=False,
-      outconsumer=rec,
-    )
-    j = json.loads(''.join(rec.lines))
+  def list_packs(self, use_search_path=True, use_pack_cache=True):
+    if use_search_path:
+      rec = Recorder()
+      self(
+        'resolve', 'qlpacks',
+        '--format', 'json',
+        *self.make_search_path_args(),
+        combine_std_out_err=False,
+        outconsumer=rec,
+      )
+      j = json.loads(''.join(rec.lines))
 
-    for k in j:
-      for v in j[k]:
-        yield v
+      for k in j:
+        for v in j[k]:
+          yield v
 
-    packcache = expanduser('~/.codeql/packages/**')
-    for p in iglob(packcache, recursive=True):
-      if is_pack(p):
-        yield p
-
-
-  def adjust_matchstr(self, matchstr):
-    if matchstr == '*':
-      return '>=0.0.0'
-    elif matchstr[0].isdigit():
-      return '==' + matchstr
-    elif matchstr[0] == '=' and matchstr[1].isdigit():
-      return '=' + matchstr
-    else:
-      return matchstr
+    if use_pack_cache:
+      packcache = expanduser('~/.codeql/packages/**')
+      for p in iglob(packcache, recursive=True):
+        if is_pack(p):
+          yield p
 
 
-  def get_pack(self, packname, matchstr='*'):
+  def get_pack(self, packname, matchstr='*', use_search_path=True, use_pack_cache=True):
     latestp = None
-    latestv = semver.VersionInfo(0, 0, 0)
-    for p in self.list_packs():
+    latestv = '0.0.0'
+    for p in self.list_packs(
+      use_search_path=use_search_path,
+      use_pack_cache=use_pack_cache,
+    ):
       if get_pack_name(p) == packname:
-        v = semver.VersionInfo.parse(get_pack_version(p))
-        if v.match(self.adjust_matchstr(matchstr)) and v.compare(latestv) >= 0:
+        v = get_pack_version(p)
+        if match_version(v, matchstr) and compare_version(v, latestv) >= 0:
           latestv = v
           latestp = p
     return latestp
+
+
+  def get_version(self):
+    rec = Recorder()
+    self(
+      'version',
+      '--format', 'json',
+      combine_std_out_err=False,
+      outconsumer=rec,
+    )
+    return json.loads(''.join(rec.lines))['version']
+
+
+  def download_compatible_pack(self, pname, matchstr='*'):
+    cli_version = self.get_version()
+    p = self.download_pack(pname, matchstr)
+    while True:
+      if not p:
+        return None
+      pv = get_pack_version(p)
+      if not match_version(pv, matchstr):
+        return None
+      if get_pack_cli_version(p) == cli_version:
+        return p
+      p = self.download_pack(pname, '<' + pv)
+
+
+  def download_latest_pack(self, pname):
+    return self.download_pack(pname, '*')
+
+
+  def get_latest_version(self, pname, default=None):
+    lpack = self.download_latest_pack(pname)
+    return get_pack_version(lpack) if lpack else default
 
 
   def download_pack(self, packname, matchstr='*'):
@@ -544,19 +586,50 @@ class CodeQL(Executable):
       stream.close()
 
     try:
+      rec = Recorder()
       self(
         'pack', 'download',
         *self.make_search_path_args(),
         packname + '@' + matchstr,
         combine_std_out_err=False,
-        errconsumer=errgobbler
+        errconsumer=errgobbler,
+        outconsumer=rec
       )
+      j = json.loads(''.join(rec.lines))
+      latestv = None
+      for p in j.get('packs', {}):
+        pv = p['version']
+        if not(
+          p['name'] == packname and \
+          match_version(pv, matchstr)
+        ):
+          return None
+        if latestv is None or compare_version(pv, latestv) >= 0:
+          latestv = pv
+
+      # TODO: Remove this once 'codeql download' always returns json
+      # data with information about the downloaded packages
+      # for now this is necessary, unfortunately.
+      if latestv:
+        return self.get_pack(
+          packname,
+          latestv,
+          use_search_path=True,
+          use_pack_cache=True
+        )
+      else:
+        return self.get_pack(
+          packname,
+          matchstr,
+          use_search_path=True,
+          use_pack_cache=False
+        )
+
     except subprocess.CalledProcessError as e:
       if not_found:
         return None
       else:
         raise
-    return self.get_pack(packname, matchstr)
 
 
 def is_dist(directory):
