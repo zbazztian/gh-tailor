@@ -26,6 +26,7 @@ def get_codeql(args, location):
   search_path = args.search_path
   manifest = search_manifest(location)
   if manifest:
+    manifest = dirname(manifest)
     if search_path:
       search_path = search_path + ':' + manifest
     else:
@@ -34,7 +35,7 @@ def get_codeql(args, location):
   codeql = util.CodeQL(
     distdir,
     additional_packs=args.additional_packs,
-    search_path=args.search_path,
+    search_path=search_path,
   )
   info('CodeQL distribution detected at "%s".' % (codeql.distdir))
   return codeql
