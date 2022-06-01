@@ -24,7 +24,7 @@ def get_codeql(args, location):
     )
 
   search_path = args.search_path
-  manifest = search_manifest(location)
+  manifest = util.search_manifest(location)
   if manifest:
     manifest = dirname(manifest)
     if search_path:
