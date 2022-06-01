@@ -29,13 +29,11 @@ def get_codeql(args, location):
       [util.search_manifest_dir(location), args.search_path]
     )
   )
-  print(s)
-  sys.exit(0)
 
   codeql = util.CodeQL(
     distdir,
     additional_packs=args.additional_packs,
-    search_path=search_path,
+    search_path=s,
   )
   info('CodeQL distribution detected at "%s".' % (codeql.distdir))
   return codeql
