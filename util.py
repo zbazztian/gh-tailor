@@ -340,11 +340,10 @@ def clean_pack(ppath):
 def search_manifest_dir(path):
   current = abspath(path)
   while True:
-    res = join(current, '.codeqlmanifest.yml')
-    if isfile(res):
+    manifest = join(current, '.codeqlmanifest.json')
+    if isfile(manifest):
       return current
     parent = abspath(join(current, os.pardir))
-    print('going one up: ' + parent)
     if parent == abspath(current):
       return None
     current = parent

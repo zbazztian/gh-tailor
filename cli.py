@@ -23,17 +23,14 @@ def get_codeql(args, location):
       "install the 'codeql' extension for 'gh' (https://github.com/github/gh-codeql)."
     )
 
-  search_path = args.search_path
-  manifestdir = util.search_manifest_dir(location)
-  print(location)
-  #print('yausa: ' + manifestdir)
-  if manifest:
-    manifest = manifestdir
-    sys.exit(0)
-    if search_path:
-      search_path = search_path + ':' + manifestdir
-    else:
-      search_path = manifestdir
+  s = ':'.join(
+    filter(
+      lambda p: p is not None,
+      [manifestdir, args.search_path]
+    )
+  )
+  print(s)
+  sys.exit(0)
 
   codeql = util.CodeQL(
     distdir,
