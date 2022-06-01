@@ -615,7 +615,7 @@ class CodeQL(Executable):
     pack = self.download_pack(
       pname,
       matchstr,
-      match_cli=match_cli
+      match_cli=match_cli,
       no_search_path=no_search_path
     )
     return get_pack_version(pack) if pack else default
