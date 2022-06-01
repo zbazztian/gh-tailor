@@ -24,15 +24,15 @@ def get_codeql(args, location):
     )
 
   search_path = args.search_path
-  manifest = util.search_manifest(location)
+  manifestdir = util.search_manifest_dir(location)
+  print('yausa: ' + manifestdir)
   if manifest:
-    manifest = dirname(manifest)
-    print('yausa: ' + manifest)
+    manifest = dirname(manifestdir)
     sys.exit(0)
     if search_path:
-      search_path = search_path + ':' + manifest
+      search_path = search_path + ':' + manifestdir
     else:
-      search_path = manifest
+      search_path = manifestdir
 
   codeql = util.CodeQL(
     distdir,
