@@ -26,7 +26,7 @@ def get_codeql(args, location):
   s = ':'.join(
     filter(
       lambda p: p is not None,
-      [manifestdir, args.search_path]
+      [util.search_manifest_dir(location), args.search_path]
     )
   )
   print(s)
