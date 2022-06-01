@@ -97,7 +97,12 @@ def make(args):
   # set outpack version
   util.set_pack_version(
     outpack,
-    codeql.resolve_pack_version(tailor_out_name, '*', '0.0.0', match_cli=False) \
+    codeql.resolve_pack_version(
+      tailor_out_name,
+      '*', '0.0.0',
+      no_search_path=True,
+      match_cli=False
+    ) \
     if tailor_out_version == '*' else \
     tailor_out_version
   )
@@ -156,7 +161,12 @@ def compile(args):
   # set version and check uploadability
   outpack_name = util.get_pack_name(outpack)
   if args.auto_version:
-    peerpack = codeql.download_pack(outpack_name, '*', match_cli=False)
+    peerpack = codeql.download_pack(
+      outpack_name,
+      '*',
+      no_search_path=True,
+      match_cli=False
+    )
 
     if peerpack:
       info(
@@ -185,6 +195,7 @@ def compile(args):
     if codeql.download_pack(
       outpack_name,
       util.get_pack_version(outpack),
+      no_search_path=True,
       match_cli=False
     ):
       warning('Upload would fail since a pack with this version already exists in the registry!')

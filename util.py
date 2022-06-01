@@ -576,9 +576,19 @@ class CodeQL(Executable):
     return json.loads(''.join(rec.lines))['version']
 
 
-  def download_pack(self, pname, matchstr, match_cli=True):
+  def download_pack(
+    self,
+    pname,
+    matchstr,
+    match_cli=True,
+    no_search_path=False
+  ):
     cli_version = self.get_version()
-    p = self.download_pack_impl(pname, matchstr)
+    p = self.download_pack_impl(
+      pname,
+      matchstr,
+      no_search_path=no_search_path
+    )
     while True:
       if not(p and match_cli):
         return p
@@ -587,19 +597,31 @@ class CodeQL(Executable):
         return None
       if get_pack_cli_version(p, cli_version) == cli_version:
         return p
-      p = self.download_pack_impl(pname, '<' + pv)
+      p = self.download_pack_impl(
+        pname,
+        '<' + pv,
+        no_search_path=no_search_path
+      )
 
 
-  def resolve_pack_version(self, pname, matchstr, default=None, match_cli=True):
+  def resolve_pack_version(
+    self,
+    pname,
+    matchstr,
+    default=None,
+    match_cli=True,
+    no_search_path=False
+  ):
     pack = self.download_pack(
       pname,
       matchstr,
       match_cli=match_cli
+      no_search_path=no_search_path
     )
     return get_pack_version(pack) if pack else default
 
 
-  def download_pack_impl(self, packname, matchstr):
+  def download_pack_impl(self, packname, matchstr, no_search_path=False):
     not_found = set()
 
     def errgobbler(cmd, stream):
@@ -617,10 +639,11 @@ class CodeQL(Executable):
 
     try:
       rec = Recorder()
+      search_path = [] if no_search_path else self.make_search_path_args()
       self(
         'pack', 'download',
         '--format', 'json',
-        *self.make_search_path_args(),
+        *search_path,
         packname + '@' + matchstr,
         combine_std_out_err=False,
         errconsumer=errgobbler,
