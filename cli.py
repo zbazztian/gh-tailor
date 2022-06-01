@@ -11,7 +11,7 @@ import shutil
 import tarfile
 
 
-def get_codeql(args):
+def get_codeql(args, location):
   info('Detecting CodeQL distribution...')
   distdir = args.dist or \
             util.codeql_dist_from_path_env() or \
@@ -23,6 +23,14 @@ def get_codeql(args):
       "install the 'codeql' extension for 'gh' (https://github.com/github/gh-codeql)."
     )
 
+  search_path = args.search_path
+  manifest = search_manifest(location)
+  if manifest:
+    if search_path:
+      search_path = search_path + ':' + manifest
+    else:
+      search_path = manifest
+
   codeql = util.CodeQL(
     distdir,
     additional_packs=args.additional_packs,
@@ -30,11 +38,6 @@ def get_codeql(args):
   )
   info('CodeQL distribution detected at "%s".' % (codeql.distdir))
   return codeql
-
-
-def check_project(args):
-  if not util.is_tailorproject(args.project):
-    error('"%s" is not a valid project!' % (args.project))
 
 
 def init_outpack(args):
@@ -58,11 +61,12 @@ def init(args):
 
 
 def make(args):
-  check_project(args)
+
+  if not util.is_tailorproject(args.project):
+    error('"%s" is not a valid project!' % (args.project))
 
   outpack = init_outpack(args)
-
-  codeql = get_codeql(args)
+  codeql = get_codeql(args, args.project)
 
   info('Downloading inpack...')
   tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
@@ -135,12 +139,11 @@ def make(args):
 
 
 def compile(args):
-  codeql = get_codeql(args)
-
   if not util.is_pack(args.pack):
     error('"%s" is not a (Code)QL pack!' % args.pack)
 
   outpack = args.pack
+  codeql = get_codeql(args, outpack)
 
   info('Removing previous pack artifacts from outpack...')
   util.clean_pack(outpack)
@@ -193,12 +196,11 @@ def compile(args):
 
 
 def publish(args):
-  codeql = get_codeql(args)
-
   if not util.is_pack(args.pack):
     error('"%s" is not a (Code)QL pack!' % args.pack)
 
   outpack = args.pack
+  codeql = get_codeql(args, outpack)
 
   subpack = util.subpack(outpack)
   if not subpack:

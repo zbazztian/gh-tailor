@@ -337,6 +337,18 @@ def clean_pack(ppath):
     shutil.rmtree(dotcodeqldir)
 
 
+def search_manifest(path):
+  current = path
+  while True:
+    res = join(current, '.codeqlmanifest.yml')
+    if isfile(res):
+      return res
+    parent = abspath(join(current, os.pardir))
+    if parent == abspath(current)
+      return None
+    current = parent
+
+
 def print_to_stdout(cmd, stream):
   while True:
     line = stream.readline()
