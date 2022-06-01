@@ -11,7 +11,6 @@ import shutil
 import tarfile
 
 
-
 def get_codeql(args):
   info('Detecting CodeQL distribution...')
   distdir = args.dist or \
@@ -67,10 +66,12 @@ def make(args):
 
   info('Downloading inpack...')
   tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
-  if util.get_tailor_cli_compat(args.project):
-    inpack = codeql.download_compatible_pack(tailor_in_name, tailor_in_version)
-  else:
-    inpack = codeql.download_pack(tailor_in_name, tailor_in_version)
+  match_cli = util.get_tailor_cli_compat(args.project)
+  inpack = codeql.download_pack(
+    tailor_in_name,
+    tailor_in_version,
+    match_cli=match_cli
+  )
   if inpack:
     info('inpack: "%s"' % (inpack))
   else:
@@ -93,7 +94,7 @@ def make(args):
   # set outpack version
   util.set_pack_version(
     outpack,
-    codeql.get_latest_version(tailor_out_name, '0.0.0') \
+    codeql.resolve_pack_version(tailor_out_name, '*', '0.0.0', match_cli=False) \
     if tailor_out_version == '*' else \
     tailor_out_version
   )
@@ -106,9 +107,23 @@ def make(args):
   info('Copying ql files to outpack...')
   util.sync_qlfiles(args.project, outpack)
 
+  info('Resolving dependency versions...')
+  util.push_lock_versions(outpack)
+
   info('Adding dependencies to outpack...')
   for name, version in util.get_tailor_deps(args.project).items():
-    util.pack_add_dep(outpack, name, version)
+    version = codeql.resolve_pack_version(
+      name,
+      version,
+      match_cli=match_cli
+    )
+    if version is None:
+      error('Dependency "%s"@"%s" could not be found!' % (name, version))
+    util.pack_add_dep(
+      outpack,
+      name,
+      version
+    )
 
   info('Perform imports on outpack...')
   for ti in util.get_tailor_imports(args.project):
@@ -139,7 +154,7 @@ def compile(args):
   # set version and check uploadability
   outpack_name = util.get_pack_name(outpack)
   if args.auto_version:
-    peerpack = codeql.download_latest_pack(outpack_name)
+    peerpack = codeql.download_pack(outpack_name, '*', match_cli=False)
 
     if peerpack:
       info(
@@ -167,7 +182,8 @@ def compile(args):
   else:
     if codeql.download_pack(
       outpack_name,
-      util.get_pack_version(outpack)
+      util.get_pack_version(outpack),
+      match_cli=False
     ):
       warning('Upload would fail since a pack with this version already exists in the registry!')
       if args.strict:

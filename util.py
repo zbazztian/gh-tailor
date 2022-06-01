@@ -89,6 +89,10 @@ def str2file(filepath, string):
     f.write(string)
 
 
+def codeql_pack_lock_yml(ppath):
+  return join(ppath, 'codeql-pack.lock.yml')
+
+
 def packyml(ppath):
   return join(ppath, 'qlpack.yml')
 
@@ -107,6 +111,11 @@ def is_tailorproject(ppath):
 
 def get_pack_info(ppath):
   with open(packyml(ppath), 'r') as f:
+    return yaml.safe_load(f)
+
+
+def get_pack_lock_info(ppath):
+  with open(codeql_pack_lock_yml(ppath), 'r') as f:
     return yaml.safe_load(f)
 
 
@@ -143,7 +152,7 @@ def get_tailor_in(ppath):
 
 
 def get_tailor_cli_compat(ppath):
-  return get_tailor_info(ppath).get('cliCompatibility', False)
+  return get_tailor_info(ppath).get('cliCompatibility', True)
 
 
 def get_tailor_out(ppath):
@@ -311,6 +320,15 @@ def pack_add_dep(ppath, name, version):
   deps = get_pack_value(ppath, 'dependencies')
   deps[name] = version
   set_pack_value(ppath, 'dependencies', deps)
+
+
+def push_lock_versions(ppath):
+  cply = codeql_pack_lock_yml(ppath)
+  if isfile(cply):
+    lock_info = get_pack_lock_info(ppath)
+    for name, properties in (lock_info.get('dependencies') or {}).items():
+      pack_add_dep(ppath, name, properties['version'])
+    os.remove(cply)
 
 
 def clean_pack(ppath):
@@ -520,7 +538,7 @@ class CodeQL(Executable):
           yield p
 
 
-  def get_pack(self, packname, matchstr='*', use_search_path=True, use_pack_cache=True):
+  def get_pack(self, packname, matchstr, use_search_path=True, use_pack_cache=True):
     latestp = None
     latestv = '0.0.0'
     for p in self.list_packs(
@@ -546,30 +564,30 @@ class CodeQL(Executable):
     return json.loads(''.join(rec.lines))['version']
 
 
-  def download_compatible_pack(self, pname, matchstr='*'):
+  def download_pack(self, pname, matchstr, match_cli=True):
     cli_version = self.get_version()
-    p = self.download_pack(pname, matchstr)
+    p = self.download_pack_impl(pname, matchstr)
     while True:
-      if not p:
-        return None
+      if not(p and match_cli):
+        return p
       pv = get_pack_version(p)
       if not match_version(pv, matchstr):
         return None
-      if get_pack_cli_version(p) == cli_version:
+      if get_pack_cli_version(p, cli_version) == cli_version:
         return p
-      p = self.download_pack(pname, '<' + pv)
+      p = self.download_pack_impl(pname, '<' + pv)
 
 
-  def download_latest_pack(self, pname):
-    return self.download_pack(pname, '*')
+  def resolve_pack_version(self, pname, matchstr, default=None, match_cli=True):
+    pack = self.download_pack(
+      pname,
+      matchstr,
+      match_cli=match_cli
+    )
+    return get_pack_version(pack) if pack else default
 
 
-  def get_latest_version(self, pname, default=None):
-    lpack = self.download_latest_pack(pname)
-    return get_pack_version(lpack) if lpack else default
-
-
-  def download_pack(self, packname, matchstr='*'):
+  def download_pack_impl(self, packname, matchstr):
     not_found = set()
 
     def errgobbler(cmd, stream):
