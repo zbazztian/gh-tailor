@@ -344,7 +344,7 @@ def search_manifest(path):
     if isfile(res):
       return res
     parent = abspath(join(current, os.pardir))
-    if parent == abspath(current)
+    if parent == abspath(current):
       return None
     current = parent
 
