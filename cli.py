@@ -217,10 +217,6 @@ def publish(args):
 
 
 def main():
-  #print(util.dir_hash('customized/.codeql/pack/zbazztian/customized-java-queries/0.0.5/'))
-  #print(util.dir_hash('/home/sebastian/.codeql/packages/zbazztian/customized-java-queries/0.0.4/'))
-  #return
-
   packbase = argparse.ArgumentParser(add_help=False)
   packbase.add_argument(
     'pack',
