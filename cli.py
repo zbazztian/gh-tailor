@@ -100,7 +100,7 @@ def make(args):
     codeql.resolve_pack_version(
       tailor_out_name,
       '*', '0.0.0',
-      no_search_path=True,
+      use_search_path=False,
       match_cli=False
     ) \
     if tailor_out_version == '*' else \
@@ -115,23 +115,20 @@ def make(args):
   info('Copying ql files to outpack...')
   util.sync_qlfiles(args.project, outpack)
 
-  info('Resolving dependency versions...')
-  util.push_lock_versions(outpack)
-
   info('Adding dependencies to outpack...')
   for name, version in util.get_tailor_deps(args.project).items():
-    version = codeql.resolve_pack_version(
-      name,
-      version,
-      match_cli=match_cli
-    )
-    if version is None:
-      error('Dependency "%s"@"%s" could not be found!' % (name, version))
     util.pack_add_dep(
       outpack,
       name,
       version
     )
+
+  info('Updating lock file...')
+  codeql.make_lockfile(
+    outpack,
+    qlpack_backup_file,
+    match_cli=match_cli
+  )
 
   info('Perform imports on outpack...')
   for ti in util.get_tailor_imports(args.project):
@@ -152,6 +149,13 @@ def compile(args):
   info('Removing previous pack artifacts from outpack...')
   util.clean_pack(outpack)
 
+  info('Updating lock file...')
+  codeql.make_lockfile(
+    outpack,
+    qlpack_backup_file,
+    match_cli=True
+  )
+
   info('Installing pack dependencies...')
   codeql.install(outpack)
 
@@ -164,7 +168,7 @@ def compile(args):
     peerpack = codeql.download_pack(
       outpack_name,
       '*',
-      no_search_path=True,
+      use_search_path=False,
       match_cli=False
     )
 
@@ -195,7 +199,7 @@ def compile(args):
     if codeql.download_pack(
       outpack_name,
       util.get_pack_version(outpack),
-      no_search_path=True,
+      use_search_path=False,
       match_cli=False
     ):
       warning('Upload would fail since a pack with this version already exists in the registry!')
@@ -328,6 +332,8 @@ def main():
 
   global tempdir
   with tempfile.TemporaryDirectory(dir='.', prefix='.') as tempdir:
+    global qlpack_backup_file
+    qlpack_backup_file = join(tempdir, 'qlpack.yml.bak')
     args.func(args)
 
 

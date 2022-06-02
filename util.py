@@ -93,7 +93,7 @@ def codeql_pack_lock_yml(ppath):
   return join(ppath, 'codeql-pack.lock.yml')
 
 
-def packyml(ppath):
+def qlpackyml(ppath):
   return join(ppath, 'qlpack.yml')
 
 
@@ -102,7 +102,7 @@ def tailoryml(ppath):
 
 
 def is_pack(ppath):
-  return isfile(packyml(ppath))
+  return isfile(qlpackyml(ppath))
 
 
 def is_tailorproject(ppath):
@@ -110,13 +110,29 @@ def is_tailorproject(ppath):
 
 
 def get_pack_info(ppath):
-  with open(packyml(ppath), 'r') as f:
+  with open(qlpackyml(ppath), 'r') as f:
     return yaml.safe_load(f)
 
 
-def get_pack_lock_info(ppath):
-  with open(codeql_pack_lock_yml(ppath), 'r') as f:
-    return yaml.safe_load(f)
+def default_pack_lock_info():
+  return {
+    'dependencies': {},
+    'compiled': False,
+    'lockVersion': '1.0.0'
+  }
+
+
+def get_pack_lock_info(ppath, default=None):
+  fpath = codeql_pack_lock_yml(ppath)
+  if isfile(fpath):
+    with open(fpath, 'r') as f:
+      return yaml.safe_load(f)
+  return default
+
+
+def set_pack_lock_info(ppath, info):
+  with open(codeql_pack_lock_yml(ppath), 'w') as f:
+    yaml.dump(info, f)
 
 
 def get_tailor_info(ppath):
@@ -276,7 +292,7 @@ def cmp_packs(ppath1, ppath2):
 
 
 def set_pack_info(ppath, info):
-  with open(packyml(ppath), 'w') as f:
+  with open(qlpackyml(ppath), 'w') as f:
     yaml.dump(info, f)
 
 
@@ -320,15 +336,6 @@ def pack_add_dep(ppath, name, version):
   deps = get_pack_value(ppath, 'dependencies')
   deps[name] = version
   set_pack_value(ppath, 'dependencies', deps)
-
-
-def push_lock_versions(ppath):
-  cply = codeql_pack_lock_yml(ppath)
-  if isfile(cply):
-    lock_info = get_pack_lock_info(ppath)
-    for name, properties in (lock_info.get('dependencies') or {}).items():
-      pack_add_dep(ppath, name, properties['version'])
-    os.remove(cply)
 
 
 def clean_pack(ppath):
@@ -475,6 +482,36 @@ class CodeQL(Executable):
     return args
 
 
+  def make_lockfile(self, ppath, qlpackyml_backup_file, match_cli=True):
+    li = get_pack_lock_info(ppath, default_pack_lock_info())
+    pi = get_pack_info(ppath)
+
+    lideps = li.get('dependencies') or {}
+    pideps = pi.get('dependencies') or {}
+    pi['dependencies'] = pideps
+
+    for d, v in pideps.items():
+      if d in lideps:
+        pideps[d] = lideps[d]['version']
+      else:
+        resolvedv = self.resolve_pack_version(
+          d,
+          v,
+          match_cli=match_cli
+        )
+        if resolvedv is None:
+          error('Could not resolve %s@%s!' % (d, v))
+        pideps[d] = resolvedv
+
+    shutil.copyfile(qlpackyml(ppath), qlpackyml_backup_file)
+    try:
+      set_pack_info(ppath, pi)
+      self.install(ppath, mode='update')
+    finally:
+      shutil.copyfile(qlpackyml_backup_file, qlpackyml(ppath))
+
+
+
   def bump_version(self, ppath):
     new_version = add_versions(
       get_pack_version(ppath),
@@ -510,10 +547,10 @@ class CodeQL(Executable):
     return new_version
 
 
-  def install(self, ppath):
+  def install(self, ppath, mode='use-lock'):
     self(
       'pack', 'install',
-      '--mode', 'use-lock',
+      '--mode', mode,
       ppath
     )
 
@@ -581,13 +618,15 @@ class CodeQL(Executable):
     pname,
     matchstr,
     match_cli=True,
-    no_search_path=False
+    use_search_path=True
   ):
     cli_version = self.get_version()
+
+    info('Downloading %s@%s...' % (pname, matchstr))
     p = self.download_pack_impl(
       pname,
       matchstr,
-      no_search_path=no_search_path
+      use_search_path=use_search_path
     )
     while True:
       if not(p and match_cli):
@@ -595,33 +634,36 @@ class CodeQL(Executable):
       pv = get_pack_version(p)
       if not match_version(pv, matchstr):
         return None
-      if get_pack_cli_version(p, cli_version) == cli_version:
+      if compare_version(
+        get_pack_cli_version(p, cli_version),
+        cli_version
+      ) <= 0:
         return p
+
+      pred = '<' + pv
+      info('Previous pack was incompatible with this CLI, downloading %s@%s instead...' % (pname, pred))
       p = self.download_pack_impl(
         pname,
-        '<' + pv,
-        no_search_path=no_search_path
+        pred,
+        use_search_path=use_search_path
       )
 
 
   def resolve_pack_version(
-    self,
-    pname,
-    matchstr,
-    default=None,
-    match_cli=True,
-    no_search_path=False
+    self, pname, matchstr,
+    default=None, match_cli=True,
+    use_search_path=True
   ):
     pack = self.download_pack(
       pname,
       matchstr,
       match_cli=match_cli,
-      no_search_path=no_search_path
+      use_search_path=use_search_path
     )
     return get_pack_version(pack) if pack else default
 
 
-  def download_pack_impl(self, packname, matchstr, no_search_path=False):
+  def download_pack_impl(self, packname, matchstr, use_search_path=True):
     not_found = set()
 
     def errgobbler(cmd, stream):
@@ -639,7 +681,7 @@ class CodeQL(Executable):
 
     try:
       rec = Recorder()
-      search_path = [] if no_search_path else self.make_search_path_args()
+      search_path = self.make_search_path_args() if use_search_path else []
       self(
         'pack', 'download',
         '--format', 'json',
