@@ -59,7 +59,7 @@ def init(args):
   )
 
 
-def make(args):
+def sketch(args):
 
   if not util.is_tailorproject(args.project):
     error('"%s" is not a valid project!' % (args.project))
@@ -69,11 +69,10 @@ def make(args):
 
   info('Downloading inpack...')
   tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
-  match_cli = util.get_tailor_cli_compat(args.project)
   inpack = codeql.download_pack(
     tailor_in_name,
     tailor_in_version,
-    match_cli=match_cli
+    match_cli=True
   )
   if inpack:
     info('inpack: "%s"' % (inpack))
@@ -123,13 +122,6 @@ def make(args):
       version
     )
 
-  info('Updating lock file...')
-  codeql.make_lockfile(
-    outpack,
-    qlpack_backup_file,
-    match_cli=match_cli
-  )
-
   info('Perform imports on outpack...')
   for ti in util.get_tailor_imports(args.project):
     util.import_module(
@@ -139,25 +131,35 @@ def make(args):
     )
 
 
-def compile(args):
-  if not util.is_pack(args.pack):
-    error('"%s" is not a (Code)QL pack!' % args.pack)
-
+def install(args):
   outpack = args.pack
-  codeql = get_codeql(args, outpack)
 
-  info('Removing previous pack artifacts from outpack...')
-  util.clean_pack(outpack)
+  if not util.is_pack(outpack):
+    error('"%s" is not a (Code)QL pack!' % outpack)
+
+  codeql = get_codeql(args, outpack)
 
   info('Updating lock file...')
   codeql.make_lockfile(
     outpack,
     qlpack_backup_file,
-    match_cli=True
+    match_cli=True,
+    mode=args.mode
   )
 
-  info('Installing pack dependencies...')
   codeql.install(outpack)
+
+
+def create(args):
+  outpack = args.pack
+
+  if not util.is_pack(outpack):
+    error('"%s" is not a (Code)QL pack!' % outpack)
+
+  codeql = get_codeql(args, outpack)
+
+  info('Removing previous pack artifacts from outpack...')
+  util.clean_pack(outpack)
 
   info('Building pack...')
   codeql.create(outpack)
@@ -288,33 +290,47 @@ def main():
   )
   initparser.set_defaults(func=init)
 
-  makeparser = subparsers.add_parser(
-    'make',
+  sketchparser = subparsers.add_parser(
+    'sketch',
     parents=[distbase, projectbase],
     help='Create a customized package from a tailor project',
     description='Generate a customized package from a tailor project and drop it into a specified directory.',
   )
-  makeparser.add_argument(
+  sketchparser.add_argument(
     '--outdir',
     required=True,
     default=None,
     help='Directory in which to store the resulting CodeQL pack',
   )
-  makeparser.set_defaults(func=make)
+  sketchparser.set_defaults(func=sketch)
 
-  compileparser = subparsers.add_parser(
-    'compile',
+  installparser = subparsers.add_parser(
+    'install',
+    parents=[distbase, packbase],
+    help='Install a (Code)QL pack\'s dependencies.',
+    description='Install a (Code)QL pack\'s dependencies.',
+  )
+  installparser.add_argument(
+    '--mode',
+    required=False,
+    default='merge-update',
+    help='One of "merge-update" or "update".',
+  )
+  installparser.set_defaults(func=install)
+
+  createparser = subparsers.add_parser(
+    'create',
     parents=[strictbase, distbase, packbase],
     help='Compile a (Code)QL pack.',
     description='Compile a (Code)QL pack.',
   )
-  compileparser.add_argument(
+  createparser.add_argument(
     '--auto-version',
     required=False,
     action='store_true',
     help='Bump the version of the pack before compilation.',
   )
-  compileparser.set_defaults(func=compile)
+  createparser.set_defaults(func=create)
 
   publishparser = subparsers.add_parser(
     'publish',

@@ -167,10 +167,6 @@ def get_tailor_in(ppath):
   )
 
 
-def get_tailor_cli_compat(ppath):
-  return get_tailor_info(ppath).get('cliCompatibility', True)
-
-
 def get_tailor_out(ppath):
   name, version = get_tailor_in_or_out_pack(ppath, 'out')
   if version == '*' or VersionInfo.isvalid(version):
@@ -482,7 +478,16 @@ class CodeQL(Executable):
     return args
 
 
-  def make_lockfile(self, ppath, qlpackyml_backup_file, match_cli=True):
+  def make_lockfile(
+    self, ppath,
+    qlpackyml_backup_file,
+    match_cli=True, mode='merge-update'
+  ):
+
+    if mode == 'update':
+      if isfile(codeql_pack_lock_yml(ppath)):
+        os.remove(codeql_pack_lock_yml(ppath))
+
     li = get_pack_lock_info(ppath, default_pack_lock_info())
     pi = get_pack_info(ppath)
 
