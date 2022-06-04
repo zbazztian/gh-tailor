@@ -1,3 +1,4 @@
+import textwrap
 import json
 import pprint
 import queue
@@ -19,6 +20,75 @@ import yaml
 import threading
 import semver
 from semver import VersionInfo
+
+
+def tailor_template(
+  lang, inname=None,
+  inversion=None, outname=None,
+  outversion=None, deps = None,
+  imps = None
+):
+
+  def make_file_pattern():
+    if lang == 'csharp':
+      return 'Security Features/CWE-*/*.ql'
+    elif lang == 'ruby':
+      return 
+
+  inname = inname or ('codeql/%s-queries' % lang)
+  if inname == ('codeql/%s-queries' % lang):
+    defaultSuite = defaultSuite or ('codeql-suites/%s-code-scanning.qls' % lang)
+  inversion = inversion or '*'
+  outname = outname or 'scope/packname'
+  outversion = outversion or '*'
+  if deps is None:
+    deps = { ('zbazztian/%s-tailor-base' % lang): '*' }
+  if imps is None:
+    imps = [{ 'module': 'TailorCustomizations', 'files': 'Security/CWE/CWE-*/*.ql' }]
+
+  inpack = 'in:\n  %s: "%s"' % (inname, inversion)
+  outpack = 'out:\n  %s: "%s"' % (outname, outversion)
+  defaultSuiteFile = ''
+  if defaultSuite:
+    defaultSuiteFile = 'defaultSuiteFile: %s' % defaultSuite
+  dependencies = ''
+  if deps:
+    dependencies = 'dependencies:'
+    for d, v in deps.items():
+      dependencies = dependencies + '\n  %s: "%s"' % (d, v)
+  imports = ''
+  if imps:
+    imports = 'imports:'
+    for i in imports:
+      imports = imports + '\n  - module: "%s"\n    files: "%s"' % (i['module'], i['files'])
+
+  inpack = \
+    '# inpack: the package you want to tailor\n' +
+    '# this may contain a version range\n' +
+    inpack
+  outpack = \
+    '# outpack: the name of the resulting package\n' +
+    '# this may either contain a concrete version, e.g.:\n' +
+    '# myscope/my-package-name: '1.0.0' or a an asterisk, e.g.:\n' +
+    '# codeql/java-queries: '*' in which case the version will\n' +
+    '# be set to the latest version of this package in the registry\n' +
+    '# if there exists one.' +
+    outpack
+  defaultSuiteFile = \
+    '# Optional:\n' +
+    '# Set the default query suite of the pack\n' +
+    defaultSuiteFile
+  dependencies = \
+    '# Optional:\n' +
+    '# Dependencies to inject into the outpack.\n' +
+    '# May contain version ranges.\n' +
+    dependencies
+  imports = \
+    '# Optional:\n' +
+    '# Import these modules into the specified .ql / .qll files\n' +
+    imports
+
+  return '\n\n'.join([inpack, outpack, defaultSuiteFile, dependencies, imports])
 
 
 def hashstr(s):
