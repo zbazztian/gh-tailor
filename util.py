@@ -23,72 +23,84 @@ from semver import VersionInfo
 
 
 def tailor_template(
-  lang, inname=None,
-  inversion=None, outname=None,
-  outversion=None, deps = None,
-  imps = None
+  lang, inName=None,
+  outName=None
 ):
 
   def make_file_pattern():
     if lang == 'csharp':
-      return 'Security Features/CWE-*/*.ql'
+      return 'Security Features/**/*.ql'
     elif lang == 'ruby':
-      return 
+      return 'queries/security/cwe-*/*.ql'
+    elif lang in ['java', 'cpp']:
+      return 'Security/CWE/CWE-*/*.ql'
+    elif lang in ['python', 'javascript', 'go']:
+      return 'Security/CWE-*/*.ql'
 
-  inname = inname or ('codeql/%s-queries' % lang)
-  if inname == ('codeql/%s-queries' % lang):
-    defaultSuite = defaultSuite or ('codeql-suites/%s-code-scanning.qls' % lang)
-  inversion = inversion or '*'
-  outname = outname or 'scope/packname'
-  outversion = outversion or '*'
-  if deps is None:
-    deps = { ('zbazztian/%s-tailor-base' % lang): '*' }
-  if imps is None:
-    imps = [{ 'module': 'TailorCustomizations', 'files': 'Security/CWE/CWE-*/*.ql' }]
+  return textwrap.dedent('''
+    # inpack: the package you want to tailor
+    # this may contain a version range
+    in:
+      {inName}: "{inVersion}"
 
-  inpack = 'in:\n  %s: "%s"' % (inname, inversion)
-  outpack = 'out:\n  %s: "%s"' % (outname, outversion)
-  defaultSuiteFile = ''
-  if defaultSuite:
-    defaultSuiteFile = 'defaultSuiteFile: %s' % defaultSuite
-  dependencies = ''
-  if deps:
-    dependencies = 'dependencies:'
-    for d, v in deps.items():
-      dependencies = dependencies + '\n  %s: "%s"' % (d, v)
-  imports = ''
-  if imps:
-    imports = 'imports:'
-    for i in imports:
-      imports = imports + '\n  - module: "%s"\n    files: "%s"' % (i['module'], i['files'])
+    # outpack: the name of the resulting package
+    # this may either contain a concrete version, e.g.:
+    # myscope/my-package-name: '1.0.0' or a an asterisk, e.g.:
+    # codeql/java-queries: '*' in which case the version will
+    # be set to the latest version of this package in the registry
+    # if there exists one.
+    out:
+      {outName}: "{outVersion}"
 
-  inpack = \
-    '# inpack: the package you want to tailor\n' +
-    '# this may contain a version range\n' +
-    inpack
-  outpack = \
-    '# outpack: the name of the resulting package\n' +
-    '# this may either contain a concrete version, e.g.:\n' +
-    '# myscope/my-package-name: '1.0.0' or a an asterisk, e.g.:\n' +
-    '# codeql/java-queries: '*' in which case the version will\n' +
-    '# be set to the latest version of this package in the registry\n' +
-    '# if there exists one.' +
-    outpack
-  defaultSuiteFile = \
-    '# Optional:\n' +
-    '# Set the default query suite of the pack\n' +
-    defaultSuiteFile
-  dependencies = \
-    '# Optional:\n' +
-    '# Dependencies to inject into the outpack.\n' +
-    '# May contain version ranges.\n' +
-    dependencies
-  imports = \
-    '# Optional:\n' +
-    '# Import these modules into the specified .ql / .qll files\n' +
-    imports
+    # Optional:
+    # Set the default query suite of the pack
+    # defaultSuiteFile: "{defaultSuiteFile}"
 
-  return '\n\n'.join([inpack, outpack, defaultSuiteFile, dependencies, imports])
+    # Optional:
+    # Dependencies to inject into the outpack.
+    # May contain version ranges.
+    dependencies:
+      {dependencyName}: "*"
+
+    # Optional:
+    # Import these modules into the specified .ql / .qll files
+    imports:
+      - module: TailorCustomizations
+        files: "{importFilePattern}"
+  ''').format(
+    inName=inName or ('codeql/%s-queries' % lang),
+    inVersion='*',
+    outName=outName or 'scope/packname',
+    outVersion='*',
+    defaultSuiteFile='codeql-suites/%s-code-scanning.qls' % lang,
+    dependencyName='zbazztian/%s-tailor-base' % lang,
+    importFilePattern=make_file_pattern()
+  )
+
+
+def tailor_customizations_qll(lang):
+  return textwrap.dedent('''
+    import com.github.customizations.Customizations
+
+    class MyTailorSettings extends Settings::Provider {{
+      MyTailorSettings(){{
+        // The priority of these settings. If other settings
+        // classes exist, the priority governs which one will
+        // take precedence.
+        this = 0
+      }}
+
+      override predicate assign(string key, string value) {{
+        // INSERT YOUR SETTINGS HERE //
+        // For example:
+        key = "{lang}.local_sources" and value = "true"
+        // or
+        // key = "{lang}.lenient_taintflow" and value = "false"
+      }}
+    }}
+  ''').format(
+    lang=lang
+  )
 
 
 def hashstr(s):

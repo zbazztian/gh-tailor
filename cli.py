@@ -52,10 +52,22 @@ def init(args):
   if util.is_tailorproject(args.project):
     error('"%s" is already a project!' % (args.project))
 
-  shutil.copytree(
-    join(abspath(dirname(__file__)), 'templates', 'java'),
-    args.project,
-    dirs_exist_ok=True,
+  os.makedirs(args.project, exist_ok=True)
+
+  util.str2file(
+    util.tailoryml(args.project),
+    util.tailor_template(
+      args.language,
+      inName=args.inpack_name,
+      outName=args.outpack_name
+    )
+  )
+
+  util.str2file(
+    join(args.project, 'TailorCustomizations.qll'),
+    util.tailor_customizations_qll(
+      args.language,
+    )
   )
 
 
@@ -287,6 +299,23 @@ def main():
     parents=[projectbase],
     help='Create a new tailor project',
     description='Create a skeleton for a tailor project in the specified directory',
+  )
+  initparser.add_argument(
+    '--language',
+    required=True,
+    help='Language',
+  )
+  initparser.add_argument(
+    '--inpack-name',
+    required=False,
+    default=None,
+    help='The name of the packet to be customized.',
+  )
+  initparser.add_argument(
+    '--outpack-name',
+    required=False,
+    default=None,
+    help='The name of the resulting package.',
   )
   initparser.set_defaults(func=init)
 
