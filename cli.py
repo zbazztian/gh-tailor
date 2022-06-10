@@ -163,81 +163,45 @@ def install(args):
 
 
 def create(args):
-  outpack = args.pack
 
-  if not util.is_pack(outpack):
-    error('"%s" is not a (Code)QL pack!' % outpack)
+  pack = args.pack
+  if not util.is_pack(pack):
+    error('"%s" is not a (Code)QL pack!' % pack)
 
-  codeql = get_codeql(args, outpack)
+  outdir = args.outdir or args.pack
+  if abspath(outdir) != abspath(args.pack) and isdir(outdir):
+    error('Output directory "%s" already exists!' % outdir)
 
-  info('Removing previous pack artifacts from outpack...')
-  util.clean_pack(outpack)
+  codeql = get_codeql(args, pack)
 
   info('Building pack...')
-  codeql.create(outpack)
+  codeql.create(pack, outdir, join(tempdir, 'outpack'))
 
-  # set version and check uploadability
-  outpack_name = util.get_pack_name(outpack)
-  if args.auto_version:
-    peerpack = codeql.download_pack(
-      outpack_name,
-      '*',
-      use_search_path=False,
-      match_cli=False
-    )
 
-    if peerpack:
-      info(
-        'Initiating pack version to "%s" (latest version in registry)' % codeql.set_version(
-          outpack,
-          util.get_pack_version(peerpack)
-        )
-      )
-      if args.strict and util.cmp_packs(peerpack, outpack):
-        warning(
-          'Upload would fail since the latest pack in the ' +
-          'registry is identical to this pack!'
-        )
-        sys.exit(2)
-      else:
-        info(
-          ('Auto-bumped pack version to "%s", since this pack is different ' +
-          'from the latest one in the registry.') % codeql.bump_version(outpack)
-        )
-    else:
-      info(
-        ('Pack doesn\'t yet exist in registry. Upload would succeed. ' +
-        'Initiating pack version to "%s"') % codeql.set_version(outpack, '0.0.0')
-      )
-  else:
-    if codeql.download_pack(
-      outpack_name,
-      util.get_pack_version(outpack),
-      use_search_path=False,
-      match_cli=False
-    ):
-      warning('Upload would fail since a pack with this version already exists in the registry!')
-      if args.strict:
-        sys.exit(2)
-    else:
-      info("Pack doesn't yet exist in registry. Upload would succeed.")
+def autoversion(args):
+  pack = args.pack
+  if not util.is_pack(pack):
+    error('"%s" is not a (Code)QL pack!' % pack)
+
+  codeql = get_codeql(args, pack)
+
+  outdir = args.outdir or args.pack
+  if abspath(outdir) != abspath(args.pack) and isdir(outdir):
+    error('Output directory "%s" already exists!' % outdir)
+  sys.exit(codeql.autoversion(pack, outdir, args.mode, args.fail))
 
 
 def publish(args):
-  if not util.is_pack(args.pack):
-    error('"%s" is not a (Code)QL pack!' % args.pack)
+  pack = args.pack
+  if not util.is_pack(pack):
+    error('"%s" is not a (Code)QL pack!' % pack)
 
-  outpack = args.pack
-  codeql = get_codeql(args, outpack)
-
-  subpack = util.subpack(outpack)
-  if not subpack:
-    error('"%s" was not compiled!' % outpack)
+  codeql = get_codeql(args, pack)
 
   out = join(tempdir, 'pack.tgz')
   with tarfile.open(out, 'w:gz') as tarf:
-    for name in os.listdir(subpack):
-      tarf.add(join(subpack, name), arcname=name, recursive=True)
+    for name in os.listdir(pack):
+      tarf.add(join(pack, name), arcname=name, recursive=True)
 
   codeql(
     'pack', 'publish',
@@ -247,6 +211,12 @@ def publish(args):
 
 
 def main():
+  outbase = argparse.ArgumentParser(add_help=False)
+  outbase.add_argument(
+    '--outdir',
+    help='Directory in which to store the resulting CodeQL pack',
+  )
+
   packbase = argparse.ArgumentParser(add_help=False)
   packbase.add_argument(
     'pack',
@@ -277,15 +247,6 @@ def main():
     default=None,
     help='Additional search path for QL packs',
   )
-
-  strictbase = argparse.ArgumentParser(add_help=False)
-  strictbase.add_argument(
-    '--strict',
-    required=False,
-    action='store_true',
-    help='Treat warnings as errors.',
-  )
-
 
   parser = argparse.ArgumentParser(
     prog='tailor',
@@ -321,15 +282,9 @@ def main():
 
   sketchparser = subparsers.add_parser(
     'sketch',
-    parents=[distbase, projectbase],
+    parents=[distbase, projectbase, outbase],
     help='Create a customized package from a tailor project',
     description='Generate a customized package from a tailor project and drop it into a specified directory.',
-  )
-  sketchparser.add_argument(
-    '--outdir',
-    required=True,
-    default=None,
-    help='Directory in which to store the resulting CodeQL pack',
   )
   sketchparser.set_defaults(func=sketch)
 
@@ -349,17 +304,30 @@ def main():
 
   createparser = subparsers.add_parser(
     'create',
-    parents=[strictbase, distbase, packbase],
+    parents=[distbase, packbase, outbase],
     help='Compile a (Code)QL pack.',
     description='Compile a (Code)QL pack.',
   )
-  createparser.add_argument(
-    '--auto-version',
+  createparser.set_defaults(func=create)
+
+  autoversionparser = subparsers.add_parser(
+    'autoversion',
+    parents=[distbase, packbase, outbase],
+    help='Check or automatically bump version numbers of (Code)QL packs.',
+    description='Check or automatically bump version numbers of (Code)QL packs.',
+  )
+  autoversionparser.add_argument(
+    '--mode',
+    required=True,
+    help='One of: "manual", "bump", "bump-on-collision".',
+  )
+  autoversionparser.add_argument(
+    '--fail',
     required=False,
     action='store_true',
-    help='Bump the version of the pack before compilation.',
+    help='Treat warnings as errors.',
   )
-  createparser.set_defaults(func=create)
+  autoversionparser.set_defaults(func=autoversion)
 
   publishparser = subparsers.add_parser(
     'publish',

@@ -341,27 +341,7 @@ def dir_hash(dirpath):
   return h.hexdigest()
 
 
-def subpack_path(ppath):
-  return join(
-    ppath,
-    '.codeql',
-    'pack',
-    get_pack_name(ppath),
-    get_pack_version(ppath)
-  )
-
-
-def subpack(ppath):
-  res = subpack_path(ppath)
-  if isdir(res):
-    return res
-  return None
-
-
 def pack_hash(ppath):
-  sp = subpack(ppath)
-  if sp:
-    return dir_hash(sp)
   return dir_hash(ppath)
 
 
@@ -382,6 +362,7 @@ def set_pack_value(ppath, key, value):
   info = get_pack_info(ppath)
   info[key] = value
   set_pack_info(ppath, info)
+  return value
 
 
 def get_pack_name(ppath):
@@ -598,40 +579,79 @@ class CodeQL(Executable):
       shutil.copyfile(qlpackyml_backup_file, qlpackyml(ppath))
 
 
+  def autoversion(self, ppath, outdir, mode, fail):
 
-  def bump_version(self, ppath):
-    new_version = add_versions(
-      get_pack_version(ppath),
-      '0.0.1',
-    )
-    self.set_version(ppath, new_version)
-    return new_version
+    if abspath(ppath) != abspath(outdir):
+      shutil.copytree(ppath, outdir, dirs_exist_ok=False)
 
+    # set version and check uploadability
+    packname = get_pack_name(outdir)
+    packversion = get_pack_version(outdir)
 
-  def set_version(self, ppath, version):
-    old_version = get_pack_version(ppath)
-    new_version = version
+    def success():
+      info('Package does not exist yet, upload will succeed.')
 
-    if old_version == new_version:
-      return old_version
+    if mode == 'manual':
 
-    old_sp = subpack(ppath)
-    if old_sp:
-      set_pack_version(old_sp, new_version)
+      if self.download_pack(
+        packname,
+        packversion,
+        use_search_path=False,
+        match_cli=False
+      ):
+        warning('Package %s@%s already exists!' % (packname, packversion))
+        if fail:
+          return 2
+      else:
+        success()
 
-    set_pack_version(
-      ppath,
-      new_version
-    )
+    elif mode == 'bump':
 
-    new_sp = subpack_path(ppath)
-    if isdir(new_sp):
-      shutil.rmtree(new_sp)
+      latestpeer = self.download_pack(
+        packname,
+        '*',
+        use_search_path=False,
+        match_cli=False
+      )
 
-    if old_sp:
-      shutil.move(old_sp, new_sp)
+      if latestpeer:
+        identical = cmp_packs(outdir, latestpeer)
+        if identical:
+          warning('This pack and its latest version in the registry are identical!')
+          if fail:
+            return 2
+        else:
+          info('This pack and its latest version in the registry differ!')
 
-    return new_version
+        newv = set_pack_version(
+          outdir,
+          add_versions(
+            get_pack_version(latestpeer),
+            '0.0.1',
+          )
+        )
+        info('Bumped version to "%s".' % newv)
+      else:
+        success()
+
+    elif mode == 'bump-on-collision':
+
+      if self.download_pack(
+        packname,
+        packversion,
+        use_search_path=False,
+        match_cli=False
+      ):
+        info('Package %s@%s already exists.' % (packname, packversion))
+        return self.autoversion(outdir, outdir, 'bump', fail)
+
+      else:
+        success()
+
+    else:
+      error('Unknown mode "%s"!' % mode)
+
+    return 0
 
 
   def install(self, ppath, mode='use-lock'):
@@ -642,13 +662,25 @@ class CodeQL(Executable):
     )
 
 
-  def create(self, ppath):
+  def create(self, ppath, output, tmppath):
     self(
       'pack', 'create',
       '--threads', '0',
+      '--output', tmppath,
       '-vv',
       ppath
     )
+
+    tmppack = join(
+      tmppath,
+      get_pack_name(ppath),
+      get_pack_version(ppath),
+    )
+
+    if isdir(output):
+      shutil.rmtree(output)
+    shutil.move(tmppack, output)
+    shutil.rmtree(tmppath)
 
 
   def list_packs(self, use_search_path=True, use_pack_cache=True):
@@ -758,12 +790,13 @@ class CodeQL(Executable):
         line = stream.readline()
         if line == '':
           break
-        print(line, end='', flush=True)
         if re.match(
           ".*A fatal error occurred: '.*' not found in the registry .*",
           line,
         ):
           not_found.add(1)
+        else:
+          print(line, end='', flush=True)
       stream.close()
 
     try:
