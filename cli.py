@@ -58,8 +58,8 @@ def init(args):
     util.tailoryml(args.project),
     util.tailor_template(
       args.language,
-      inName=args.inpack_name,
-      outName=args.outpack_name
+      base_name=args.base_name,
+      out_name=args.out_name
     )
   )
 
@@ -79,68 +79,26 @@ def sketch(args):
   outpack = init_outpack(args)
   codeql = get_codeql(args, args.project)
 
-  info('Downloading inpack...')
-  tailor_in_name, tailor_in_version = util.get_tailor_in(args.project)
-  inpack = codeql.download_pack(
-    tailor_in_name,
-    tailor_in_version,
+  info('Downloading base pack...')
+  base_name, base_version = util.get_tailor_base(args.project)
+  basepack = codeql.download_pack(
+    base_name,
+    base_version,
     match_cli=True
   )
-  if inpack:
-    info('inpack: "%s"' % (inpack))
+  if basepack:
+    info('basepack: "%s"' % (basepack))
   else:
-    error('inpack "%s" not found in registry!' % (tailor_in_name + '@' + tailor_in_version))
+    error('basepack "%s" not found in registry!' % (base_name + '@' + base_version))
 
-  info('Creating outpack at "%s"...' % (outpack))
+  info('Creating outpack at "%s"...' % outpack)
   shutil.copytree(
-    inpack,
+    basepack,
     outpack,
   )
 
-  info('Removing previous pack artifacts from outpack...')
-  util.clean_pack(outpack)
-
-  tailor_out_name, tailor_out_version = util.get_tailor_out(args.project)
-
-  info('Setting outpack name to "%s".' % (tailor_out_name))
-  util.set_pack_name(outpack, tailor_out_name)
-
-  # set outpack version
-  util.set_pack_version(
-    outpack,
-    codeql.resolve_pack_version(
-      tailor_out_name,
-      '*', '0.0.0',
-      use_search_path=False,
-      match_cli=False
-    ) \
-    if tailor_out_version == '*' else \
-    tailor_out_version
-  )
-
-  default_suite = util.get_tailor_default_suite(args.project)
-  if default_suite:
-    info('Setting outpack default suite to "%s".' % (default_suite))
-    util.set_pack_defaultsuite(outpack, default_suite)
-
-  info('Copying ql files to outpack...')
-  util.sync_qlfiles(args.project, outpack)
-
-  info('Adding dependencies to outpack...')
-  for name, version in util.get_tailor_deps(args.project).items():
-    util.pack_add_dep(
-      outpack,
-      name,
-      version
-    )
-
-  info('Perform imports on outpack...')
-  for ti in util.get_tailor_imports(args.project):
-    util.import_module(
-      outpack,
-      ti['module'],
-      ti['files'],
-    )
+  info('Executing instructions...')
+  util.perform_instructions(args.project, outpack, tempdir)
 
 
 def install(args):
@@ -267,13 +225,13 @@ def main():
     help='Language',
   )
   initparser.add_argument(
-    '--inpack-name',
+    '--base-name',
     required=False,
     default=None,
     help='The name of the packet to be customized.',
   )
   initparser.add_argument(
-    '--outpack-name',
+    '--out-name',
     required=False,
     default=None,
     help='The name of the resulting package.',

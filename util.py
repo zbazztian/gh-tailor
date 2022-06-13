@@ -3,7 +3,6 @@ import json
 import pprint
 import queue
 import re
-from glob import iglob
 import hashlib
 import subprocess
 import itertools
@@ -20,11 +19,13 @@ import yaml
 import threading
 import semver
 from semver import VersionInfo
+from subprocess import CalledProcessError
+import globber
 
 
 def tailor_template(
-  lang, inName=None,
-  outName=None
+  lang, base_name=None,
+  out_name=None,
 ):
 
   def make_file_pattern():
@@ -38,19 +39,30 @@ def tailor_template(
       return 'Security/CWE-*/*.ql'
 
   return textwrap.dedent('''
-    # inpack: the package you want to tailor
+    # base pack: the package you want to tailor
     # this may contain a version range
-    in:
-      {inName}: "{inVersion}"
+    base:
+      name: "{base_name}"
+      version: "{base_version}"
 
-    # outpack: the name of the resulting package
-    # this may either contain a concrete version, e.g.:
-    # myscope/my-package-name: '1.0.0' or a an asterisk, e.g.:
-    # codeql/java-queries: '*' in which case the version will
-    # be set to the latest version of this package in the registry
-    # if there exists one.
-    out:
-      {outName}: "{outVersion}"
+    instructions:
+      - type: set-name
+        value: "{outName}"
+      - type: set-version
+        value: "{outVersion}"
+      - type: set-default-suite
+        value: codeql-suites/java-security-extended.qls
+      - type: append
+        value: "import TailorCustomizations"
+        dst: "Security/CWE/CWE-022/TaintedPath.ql"
+      - type: github-copy
+        repository: zbazztian/gh-tailor
+        revision: main
+        src: /packs/java/*
+        dst: /
+      - type: copy
+        src: /*
+        dst: /
 
     # Optional:
     # Set the default query suite of the pack
@@ -68,10 +80,10 @@ def tailor_template(
       - module: TailorCustomizations
         files: "{importFilePattern}"
   ''').format(
-    inName=inName or ('codeql/%s-queries' % lang),
-    inVersion='*',
-    outName=outName or 'scope/packname',
-    outVersion='*',
+    base_name=base_name or ('codeql/%s-queries' % lang),
+    base_version='*',
+    out_name=out_name or 'scope/packname',
+    out_version='*',
     defaultSuiteFile='codeql-suites/%s-code-scanning.qls' % lang,
     dependencyName='zbazztian/%s-tailor-base' % lang,
     importFilePattern=make_file_pattern()
@@ -107,17 +119,6 @@ def hashstr(s):
   sha1 = hashlib.sha1()
   sha1.update(s.encode("utf-8"))
   return sha1.hexdigest()
-
-
-def searchpath_prepend(searchpath, prependme):
-  return (prependme + ':' + searchpath) if searchpath else prependme
-
-
-def import_module(ppath, module, filepattern):
-  for fpath in iglob(join(ppath, filepattern), recursive=True):
-    if isfile(fpath) and splitext(fpath)[1] in ['.ql', '.qll']:
-      with open(fpath, 'a') as f:
-        f.write('\nimport %s' % (module))
 
 
 def add_versions(v1str, v2str):
@@ -222,18 +223,9 @@ def get_tailor_info(ppath):
     return yaml.safe_load(f)
 
 
-def get_tailor_in_or_out_pack(ppath, inorout):
-  packs = list((get_tailor_info(ppath).get(inorout) or {}).items())
-  kind = '%spack' % (inorout)
-  if len(packs) == 0:
-    error('No %s specified!' % (kind))
-  if len(packs) > 1:
-    error('Only one %s is allowed!' % (kind))
-  return packs[0]
-
-
-def get_tailor_in(ppath):
-  name, version = get_tailor_in_or_out_pack(ppath, 'in')
+def get_tailor_base(ppath):
+  base = get_tailor_info(ppath)['base']
+  name, version = base['name'], base.get('version', '*')
   if version[0:2] in ('<=', '>='):
     idx = 2
   elif version[0:1] in '<>=':
@@ -243,57 +235,27 @@ def get_tailor_in(ppath):
   if version == '*' or VersionInfo.isvalid(version[idx:]):
     return name, version
   error(
-    ('Invalid tailor inpack version: "%s". ' +
+    ('Invalid tailor base pack version: "%s". ' +
      'Only "*", match expressions or concrete versions ' +
-     '(e.g. "1.0.0") are permitted!') % (version)
+     '(e.g. "1.0.0") are permitted!') % version
   )
 
 
-def get_tailor_out(ppath):
-  name, version = get_tailor_in_or_out_pack(ppath, 'out')
-  if version == '*' or VersionInfo.isvalid(version):
-    return name, version
-  error(
-    ('Invalid tailor outpack version: "%s". ' +
-      'Only "*" or concrete versions ' +
-      '(e.g. "1.0.0") are permitted!') % (version)
-  )
+def rglob(dirpath, pattern, hidden=False):
+  for f in listdir(dirpath, hidden=hidden):
+    file2match = relpath(f, dirpath)
+    if globber.match(pattern, file2match):
+      yield f
 
 
-def get_tailor_deps(ppath):
-  return get_tailor_info(ppath).get('dependencies') or {}
-
-
-def get_tailor_imports(ppath):
-  return get_tailor_info(ppath).get('imports') or []
-
-
-def get_tailor_default_suite(ppath):
-  return get_tailor_info(ppath).get('defaultSuiteFile', None)
-
-
-def sync_qlfiles(srcdir, dstdir, clobber=False):
-  for f in qlfiles(srcdir):
-    targetf = join(dstdir, relpath(f, srcdir))
-    os.makedirs(dirname(targetf), exist_ok=True)
-    if exists(targetf) and not clobber:
-      error('File "%s" overwrites file "%s"!' % (f, targetf))
-    shutil.copy(f, targetf)
-
-
-def qlfiles(directory):
-  for ext in ['ql', 'qll']:
-    for f in iglob(join(directory, '**/*' + ext), recursive=True):
-      if isfile(f):
-        yield f
-
-
-def listdir(dirpath):
+def listdir(dirpath, hidden=False):
   dirs = queue.Queue()
   dirs.put(dirpath)
   while not dirs.empty():
     d = dirs.get()
     for f in sorted(os.listdir(d)):
+      if (hidden == False and f[0] == '.'):
+        continue
       absf = join(d, f)
       if isdir(absf):
         dirs.put(absf)
@@ -397,12 +359,6 @@ def pack_add_dep(ppath, name, version):
   set_pack_value(ppath, 'dependencies', deps)
 
 
-def clean_pack(ppath):
-  dotcodeqldir = join(ppath, '.codeql')
-  if isdir(dotcodeqldir):
-    shutil.rmtree(dotcodeqldir)
-
-
 def search_manifest_dir(path):
   current = abspath(path)
   while True:
@@ -487,14 +443,19 @@ class Executable:
       if terr:
         terr.join()
       if ret != 0:
-        raise subprocess.CalledProcessError(cmd=commandstr, returncode=ret)
+        raise CalledProcessError(cmd=commandstr, returncode=ret)
+
+
+def exec_from_path_env(execname):
+  e = shutil.which(execname)
+  return Executable(e) if e else None
 
 
 def codeql_dist_from_path_env():
-  codeqlexec = shutil.which('codeql')
-  if codeqlexec:
+  codeql = exec_from_path_env('codeql')
+  if codeql:
     rec = Recorder()
-    Executable(codeqlexec)(
+    codeql(
       'version',
       '--format', 'json',
       combine_std_out_err=False,
@@ -506,19 +467,102 @@ def codeql_dist_from_path_env():
 
 
 def codeql_dist_from_gh_codeql():
-  ghexec = shutil.which('gh')
-  if ghexec:
-    rec = Recorder()
-    Executable(ghexec)(
-      'codeql',
-      'version',
-      '--format', 'json',
-      combine_std_out_err=False,
-      outconsumer=rec
-    )
-    return json.loads(''.join(rec.lines))['unpackedLocation']
+  gh = exec_from_path_env('gh')
+  if gh:
+    try:
+      rec = Recorder()
+      gh(
+        'codeql',
+        'version',
+        '--format', 'json',
+        combine_std_out_err=False,
+        outconsumer=rec
+      )
+      return json.loads(''.join(rec.lines))['unpackedLocation']
+    except CalledProcessError:
+      return None
   else:
     return None
+
+
+def perform_instructions(tpath, ppath, tmpdir):
+  ops = get_tailor_info(tpath).get('instructions', [])
+  m = {
+    'set-name': ins_set_name,
+    'set-version': ins_set_version,
+    'append': ins_append,
+    'set-default-suite': ins_set_default_suite,
+    'copy': ins_copy,
+    'github-copy': ins_github_copy,
+  }
+  for n, op in enumerate(ops):
+    t = op.get('type', None)
+    op['description'] = op.get('description', str(n))
+    info('Executing instruction "%s"...' % op['description'])
+    if not t:
+      error('Instruction is missing "type" key!')
+    m[t](tpath, ppath, op, tmpdir)
+
+
+def value_or_fail(o, k):
+  if not k in o:
+    error('Instruction is missing a "%s" key!' % k)
+  return o[k]
+
+
+def ins_set_name(tpath, ppath, o, tmpdir):
+  set_pack_name(ppath, value_or_fail(o, 'value'))
+
+
+def ins_set_version(tpath, ppath, o, tmpdir):
+  set_pack_version(ppath, value_or_fail(o, 'value'))
+
+
+def ins_append(tpath, ppath, o, tmpdir):
+  value = value_or_fail(o, 'value')
+  dst = value_or_fail(o, 'dst').strip('/')
+
+  for fpath in rglob(ppath, dst):
+    if isfile(fpath):
+      with open(fpath, 'a') as f:
+        f.write('\n%s' % value)
+
+
+def ins_set_default_suite(tpath, ppath, o, tmpdir):
+  value = value_or_fail(o, 'value').strip('/')
+  suitepath = join(ppath, value)
+  if not isfile(suitepath):
+    error('"%s" does not exist!' % suitepath)
+  set_pack_defaultsuite(ppath, value)
+
+
+def ins_copy(tpath, ppath, o, tmpdir):
+  src = value_or_fail(o, 'src').strip('/')
+  dst = value_or_fail(o, 'dst').strip('/')
+  if not copy2dir(tpath, src, ppath, dst):
+    warning('No file was copied!')
+
+
+def ins_github_copy(tpath, ppath, o, tmpdir):
+  src = value_or_fail(o, 'src').strip('/')
+  dst = value_or_fail(o, 'dst').strip('/')
+  repo = value_or_fail(o, 'repository')
+  revision = value_or_fail(o, 'revision')
+  gh = exec_from_path_env('gh')
+  checkout = join(tmpdir, 'github-copy-repo')
+  gh(
+    'repo', 'clone',
+    repo,
+    checkout,
+  )
+  git = exec_from_path_env('git')
+  git(
+    '--git-dir', join(checkout, '.git'),
+    '--work-tree', checkout,
+    'reset', '--hard', revision,
+  )
+  if not copy2dir(tpath, src, ppath, dst):
+    warning('No file was copied!')
 
 
 class CodeQL(Executable):
@@ -700,8 +744,8 @@ class CodeQL(Executable):
           yield v
 
     if use_pack_cache:
-      packcache = expanduser('~/.codeql/packages/**')
-      for p in iglob(packcache, recursive=True):
+      packcache = expanduser('~/.codeql/packages')
+      for p in rglob(packcache, '**'):
         if is_pack(p):
           yield p
 
@@ -841,7 +885,7 @@ class CodeQL(Executable):
           use_pack_cache=False
         )
 
-    except subprocess.CalledProcessError as e:
+    except CalledProcessError as e:
       if not_found:
         return None
       else:
@@ -855,32 +899,19 @@ def is_dist(directory):
   )
 
 
-def copy2dir(srcpattern, dstdirpattern):
+def copy2dir(srcroot, srcpattern, dstroot, dstdirpattern, hidden=False):
   executed = False
-  for srcfile in [s for s in iglob(srcpattern, recursive=True)]:
-    for dstdir in [d for d in iglob(join(self.distdir, dstdirpattern), recursive=True)]:
+  dstdirs = list(rglob(dstroot, dstdirpattern, hidden=hidden))
+  if dstdirpattern in ['', '.']:
+    dstdirs.append(dstroot)
+  for srcfile in rglob(srcroot, srcpattern, hidden=hidden):
+    for dstdir in dstdirs:
       if not isdir(dstdir):
-        error('"%s" is not a directory!' % (dstdir))
+        error('"%s" is not a directory!' % dstdir)
       dstpath = join(dstdir, basename(srcfile))
-      if isfile(srcfile) or islink(srcfile):
-        shutil.copyfile(srcfile, dstpath, follow_symlinks=False)
+      if isfile(srcfile):
+        shutil.copyfile(srcfile, dstpath)
       else:
-        shutil.copytree(srcfile, dstpath, symlinks=True, dirs_exist_ok=True)
+        shutil.copytree(srcfile, dstpath, dirs_exist_ok=True)
       executed = True
-
-  if not executed:
-    error('copy2dir("%s", "%s") had no effect!' % (srcpattern, dstdirpattern))
-
-
-def append(srcfile, dstfilepattern):
-  executed = False
-  for dstfile in [d for d in iglob(join(self.distdir, dstfilepattern), recursive=True)]:
-    if not isfile(dstfile):
-      error('"%s" is not a file!' % (dstfile))
-    executed = True
-    with open(dstfile, 'ab') as fdst:
-      with open(srcfile, 'rb') as fsrc:
-        fdst.write(fsrc.read())
-
-  if not executed:
-    error('append("%s", "%s") had no effect!' % (srcfile, dstfilepattern))
+  return executed
