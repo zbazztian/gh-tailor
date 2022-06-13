@@ -1,6 +1,0 @@
----
-dependencies:
-  codeql/java-all:
-    version: 0.2.2
-compiled: false
-lockVersion: 1.0.0
