@@ -47,52 +47,35 @@ def tailor_template(
 
     instructions:
       - type: set-name
-        value: "{outName}"
+        value: "{out_name}"
       - type: set-version
-        value: "{outVersion}"
+        value: "{out_version}"
       - type: set-default-suite
-        value: codeql-suites/java-security-extended.qls
+        value: "{default_suite}"
       - type: append
         value: "import TailorCustomizations"
-        dst: "Security/CWE/CWE-022/TaintedPath.ql"
+        dst: "{append_pattern}"
       - type: github-copy
-        repository: zbazztian/gh-tailor
+        repository: "zbazztian/gh-tailor"
         revision: main
-        src: /packs/java/*
-        dst: /
+        src: "packs/java/*"
+        dst: "/"
       - type: copy
-        src: /*
-        dst: /
-
-    # Optional:
-    # Set the default query suite of the pack
-    # defaultSuiteFile: "{defaultSuiteFile}"
-
-    # Optional:
-    # Dependencies to inject into the outpack.
-    # May contain version ranges.
-    dependencies:
-      {dependencyName}: "*"
-
-    # Optional:
-    # Import these modules into the specified .ql / .qll files
-    imports:
-      - module: TailorCustomizations
-        files: "{importFilePattern}"
+        src: "**/*"
+        dst: "/"
   ''').format(
     base_name=base_name or ('codeql/%s-queries' % lang),
     base_version='*',
     out_name=out_name or 'scope/packname',
-    out_version='*',
-    defaultSuiteFile='codeql-suites/%s-code-scanning.qls' % lang,
-    dependencyName='zbazztian/%s-tailor-base' % lang,
-    importFilePattern=make_file_pattern()
+    out_version='0.0.0',
+    default_suite='codeql-suites/%s-code-scanning.qls' % lang,
+    append_pattern=make_file_pattern()
   )
 
 
 def tailor_customizations_qll(lang):
   return textwrap.dedent('''
-    import com.github.customizations.Customizations
+    import tailor.Customizations
 
     class MyTailorSettings extends Settings::Provider {{
       MyTailorSettings(){{

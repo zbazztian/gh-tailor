@@ -1,5 +1,5 @@
 import java
-import com.github.customizations.Settings
+import tailor.Settings
 
 external predicate external_customization_settings(string key, string value);
 

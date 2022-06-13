@@ -1,4 +1,4 @@
-import com.github.customizations.CustomizationSettings
+import tailor.CustomizationSettings
 import semmle.code.java.dataflow.FlowSources
 import semmle.code.java.dataflow.FlowSteps
 

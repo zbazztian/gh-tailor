@@ -1,4 +1,4 @@
-import com.github.customizations.Settings
+import tailor.Settings
 
 module CustomizationSettings {
   class Defaults extends Settings::Provider {
