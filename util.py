@@ -4,21 +4,16 @@ import pprint
 import queue
 import re
 import hashlib
-import subprocess
-import itertools
 from os.path import isfile, join, relpath, islink, \
                     isdir, exists, basename, abspath, \
                     dirname, expanduser, splitext
 import os
-import tarfile
-from datetime import datetime
-import zipfile
 import sys
 import shutil
 import yaml
 import threading
-import semver
 from semver import VersionInfo
+import subprocess
 from subprocess import CalledProcessError
 import globber
 
@@ -58,7 +53,7 @@ def tailor_template(
       - type: github-copy
         repository: "zbazztian/gh-tailor"
         revision: main
-        src: "packs/java/*"
+        src: "bases/java/tailor"
         dst: "/"
       - type: copy
         src: "**/*"
@@ -544,7 +539,7 @@ def ins_github_copy(tpath, ppath, o, tmpdir):
     '--work-tree', checkout,
     'reset', '--hard', revision,
   )
-  if not copy2dir(tpath, src, ppath, dst):
+  if not copy2dir(checkout, src, ppath, dst):
     warning('No file was copied!')
 
 
@@ -632,7 +627,7 @@ class CodeQL(Executable):
       else:
         success()
 
-    elif mode == 'bump':
+    elif mode == 'new':
 
       latestpeer = self.download_pack(
         packname,
@@ -661,7 +656,7 @@ class CodeQL(Executable):
       else:
         success()
 
-    elif mode == 'bump-on-collision':
+    elif mode == 'new-on-collision':
 
       if self.download_pack(
         packname,
@@ -670,7 +665,7 @@ class CodeQL(Executable):
         match_cli=False
       ):
         info('Package %s@%s already exists.' % (packname, packversion))
-        return self.autoversion(outdir, outdir, 'bump', fail)
+        return self.autoversion(outdir, outdir, 'new', fail)
 
       else:
         success()

@@ -277,7 +277,7 @@ def main():
   autoversionparser.add_argument(
     '--mode',
     required=True,
-    help='One of: "manual", "bump", "bump-on-collision".',
+    help='One of: "manual", "new", "new-on-collision".',
   )
   autoversionparser.add_argument(
     '--fail',
