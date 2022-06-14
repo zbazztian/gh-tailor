@@ -59,12 +59,12 @@ def tailor_template(
       #- type: set-metadata
       #  key: "security-severity"
       #  value: "9.9"
-      #  dst: /Security/CWE/-079/XSS.ql
+      #  dst: {security_queries}
 
       # append the given value to all specified files
       - type: append
         value: "import TailorCustomizations"
-        dst: "{append_pattern}"
+        dst: "{security_queries}"
 
       # clone the given repository, check out the given
       # branch and copy the files specified to
@@ -86,7 +86,7 @@ def tailor_template(
     out_name=out_name or 'scope/packname',
     out_version='0.0.0',
     default_suite='codeql-suites/%s-code-scanning.qls' % lang,
-    append_pattern=make_file_pattern()
+    security_queries=make_file_pattern()
   )
 
 
