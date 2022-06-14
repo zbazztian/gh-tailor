@@ -41,22 +41,44 @@ def tailor_template(
       version: "{base_version}"
 
     instructions:
+      # set the resulting pack's name
       - type: set-name
         value: "{out_name}"
+
+      # set the resulting pack's version
       - type: set-version
         value: "{out_version}"
+
+      # set the default query suite to run when the pack
+      # is used for analysis
       - type: set-default-suite
         value: "{default_suite}"
+
+      # set the metadata of the resulting pack's
+      # query files to the given value
+      #- type: set-metadata
+      #  key: "security-severity"
+      #  value: "9.9"
+      #  dst: /Security/CWE/-079/XSS.ql
+
+      # append the given value to all specified files
       - type: append
         value: "import TailorCustomizations"
         dst: "{append_pattern}"
+
+      # clone the given repository, check out the given
+      # branch and copy the files specified to
+      # the resulting pack's root directory
       - type: github-copy
         repository: "zbazztian/gh-tailor"
         revision: main
         src: "bases/java/tailor"
         dst: "/"
+
+      # copy all files in the tailor project's root directory
+      # to the resulting pack's root directory
       - type: copy
-        src: "**/*"
+        src: "/*"
         dst: "/"
   ''').format(
     base_name=base_name or ('codeql/%s-queries' % lang),
@@ -472,13 +494,14 @@ def perform_instructions(tpath, ppath, tmpdir):
     'set-default-suite': ins_set_default_suite,
     'copy': ins_copy,
     'github-copy': ins_github_copy,
+    'set-metadata': ins_set_metadata,
   }
   for n, op in enumerate(ops):
-    t = op.get('type', None)
     op['description'] = op.get('description', str(n))
     info('Executing instruction "%s"...' % op['description'])
-    if not t:
-      error('Instruction is missing "type" key!')
+    t = value_or_fail(op, 'type')
+    if not t in m:
+      error('Unknown instruction type "%s"!' % t)
     m[t](tpath, ppath, op, tmpdir)
 
 
@@ -541,6 +564,32 @@ def ins_github_copy(tpath, ppath, o, tmpdir):
   )
   if not copy2dir(checkout, src, ppath, dst):
     warning('No file was copied!')
+
+
+def ins_set_metadata(tpath, ppath, o, tmpdir):
+  key = value_or_fail(o, 'key')
+  value = value_or_fail(o, 'value')
+  dst = value_or_fail(o, 'dst').strip('/')
+  executed = False
+
+  for dstfile in rglob(ppath, dst):
+    if not isfile(dstfile) or splitext(dstfile)[1] != '.ql':
+      error('"%s" is not a query file!' % dstfile)
+    before, metadata, after = dissect_query(file2str(dstfile))
+    modified = False
+    for i, (k, v) in enumerate(metadata):
+      if k == key:
+        metadata[i] = (key, value)
+        modified = True
+        break
+    if not modified:
+      metadata.append((key, value))
+    str2file(dstfile, assemble_query(before, metadata, after))
+    info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, dstfile))
+    executed = True
+
+  if not executed:
+    warning('No files were modified!')
 
 
 class CodeQL(Executable):
@@ -893,3 +942,34 @@ def copy2dir(srcroot, srcpattern, dstroot, dstdirpattern, hidden=False):
         shutil.copytree(srcfile, dstpath, dirs_exist_ok=True)
       executed = True
   return executed
+
+
+def dissect_query(qlstr):
+  PATTERN_METADATA = re.compile('^(.*?)/\*\*(.*?)\*/(.*)$', flags=re.DOTALL)
+  PATTERN_METADATA_LINE_SEP = re.compile('^\s*\*?\s*@', flags=re.MULTILINE)
+  PATTERN_LEADING_STAR = re.compile('^\s*\*?\s*', flags=re.MULTILINE)
+  result = []
+
+  # extract metadata section
+  m = PATTERN_METADATA.match(qlstr)
+  if not m:
+    return result
+  before, metadata_section, after = m.group(1), m.group(2), m.group(3)
+
+  lines = PATTERN_METADATA_LINE_SEP.split(metadata_section)[1:]
+
+  for l in lines:
+    key, value = re.split('\s', l, maxsplit=1)
+    value = PATTERN_LEADING_STAR.sub('', value)
+    value = re.sub('\s+', ' ', value).strip()
+    result.append((key, value))
+
+  return before, result, after
+
+
+def assemble_query(before, metadata, after):
+  md_section = '/**'
+  for k,v in metadata:
+    md_section = md_section + ('\n * @%s %s' % (k, v))
+  md_section = md_section + '\n */'
+  return before + md_section + after
