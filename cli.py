@@ -91,7 +91,6 @@ def download(args):
     args.outdir if args.outdir else '.'
   )
 
-  info('Downloading pack "%s@%s"...' % (args.name, args.version))
   pack = codeql.download_pack(
     args.name,
     args.version,
