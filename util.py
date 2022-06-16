@@ -16,6 +16,16 @@ from semver import VersionInfo
 import subprocess
 from subprocess import CalledProcessError
 import globber
+from distutils import dir_util
+
+
+def clear_dir(dirpath):
+  for n in os.listdir(dirpath):
+    f = join(dirpath, n)
+    if isfile(f):
+      os.unlink(f)
+    elif isdir(f):
+      shutil.rmtree(f)
 
 
 def tailor_template(
@@ -180,16 +190,8 @@ def qlpackyml(ppath):
   return join(ppath, 'qlpack.yml')
 
 
-def tailoryml(ppath):
-  return join(ppath, 'tailor.yml')
-
-
 def is_pack(ppath):
   return isfile(qlpackyml(ppath))
-
-
-def is_tailorproject(ppath):
-  return isfile(tailoryml(ppath))
 
 
 def get_pack_info(ppath):
@@ -218,26 +220,19 @@ def set_pack_lock_info(ppath, info):
     yaml.dump(info, f)
 
 
-def get_tailor_info(ppath):
-  with open(tailoryml(ppath), 'r') as f:
-    return yaml.safe_load(f)
-
-
-def get_tailor_base(ppath):
-  base = get_tailor_info(ppath)['base']
-  name, version = base['name'], base.get('version', '*')
-  if version[0:2] in ('<=', '>='):
+def parse_version(vstr):
+  if vstr[0:2] in ('<=', '>='):
     idx = 2
-  elif version[0:1] in '<>=':
+  elif vstr[0:1] in '<>=':
     idx = 1
   else:
     idx = 0
-  if version == '*' or VersionInfo.isvalid(version[idx:]):
-    return name, version
+  if vstr == '*' or VersionInfo.isvalid(vstr[idx:]):
+    return vstr
   error(
-    ('Invalid tailor base pack version: "%s". ' +
+    ('Invalid pack version: "%s". ' +
      'Only "*", match expressions or concrete versions ' +
-     '(e.g. "1.0.0") are permitted!') % version
+     '(e.g. "1.0.0") are permitted!') % vstr
   )
 
 
@@ -485,113 +480,6 @@ def codeql_dist_from_gh_codeql():
     return None
 
 
-def perform_instructions(tpath, ppath, tmpdir):
-  ops = get_tailor_info(tpath).get('instructions', [])
-  m = {
-    'set-name': ins_set_name,
-    'set-version': ins_set_version,
-    'append': ins_append,
-    'set-default-suite': ins_set_default_suite,
-    'copy': ins_copy,
-    'github-copy': ins_github_copy,
-    'set-metadata': ins_set_metadata,
-  }
-  for n, op in enumerate(ops):
-    op['description'] = op.get('description', str(n))
-    info('Executing instruction "%s"...' % op['description'])
-    t = value_or_fail(op, 'type')
-    if not t in m:
-      error('Unknown instruction type "%s"!' % t)
-    m[t](tpath, ppath, op, tmpdir)
-
-
-def value_or_fail(o, k):
-  if not k in o:
-    error('Instruction is missing a "%s" key!' % k)
-  return o[k]
-
-
-def ins_set_name(tpath, ppath, o, tmpdir):
-  set_pack_name(ppath, value_or_fail(o, 'value'))
-
-
-def ins_set_version(tpath, ppath, o, tmpdir):
-  set_pack_version(ppath, value_or_fail(o, 'value'))
-
-
-def ins_append(tpath, ppath, o, tmpdir):
-  value = value_or_fail(o, 'value')
-  dst = value_or_fail(o, 'dst').strip('/')
-
-  for fpath in rglob(ppath, dst):
-    if isfile(fpath):
-      with open(fpath, 'a') as f:
-        f.write('\n%s' % value)
-
-
-def ins_set_default_suite(tpath, ppath, o, tmpdir):
-  value = value_or_fail(o, 'value').strip('/')
-  suitepath = join(ppath, value)
-  if not isfile(suitepath):
-    error('"%s" does not exist!' % suitepath)
-  set_pack_defaultsuite(ppath, value)
-
-
-def ins_copy(tpath, ppath, o, tmpdir):
-  src = value_or_fail(o, 'src').strip('/')
-  dst = value_or_fail(o, 'dst').strip('/')
-  if not copy2dir(tpath, src, ppath, dst):
-    warning('No file was copied!')
-
-
-def ins_github_copy(tpath, ppath, o, tmpdir):
-  src = value_or_fail(o, 'src').strip('/')
-  dst = value_or_fail(o, 'dst').strip('/')
-  repo = value_or_fail(o, 'repository')
-  revision = value_or_fail(o, 'revision')
-  gh = exec_from_path_env('gh')
-  checkout = join(tmpdir, 'github-copy-repo')
-  gh(
-    'repo', 'clone',
-    repo,
-    checkout,
-  )
-  git = exec_from_path_env('git')
-  git(
-    '--git-dir', join(checkout, '.git'),
-    '--work-tree', checkout,
-    'reset', '--hard', revision,
-  )
-  if not copy2dir(checkout, src, ppath, dst):
-    warning('No file was copied!')
-
-
-def ins_set_metadata(tpath, ppath, o, tmpdir):
-  key = value_or_fail(o, 'key')
-  value = value_or_fail(o, 'value')
-  dst = value_or_fail(o, 'dst').strip('/')
-  executed = False
-
-  for dstfile in rglob(ppath, dst):
-    if not isfile(dstfile) or splitext(dstfile)[1] != '.ql':
-      error('"%s" is not a query file!' % dstfile)
-    before, metadata, after = dissect_query(file2str(dstfile))
-    modified = False
-    for i, (k, v) in enumerate(metadata):
-      if k == key:
-        metadata[i] = (key, value)
-        modified = True
-        break
-    if not modified:
-      metadata.append((key, value))
-    str2file(dstfile, assemble_query(before, metadata, after))
-    info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, dstfile))
-    executed = True
-
-  if not executed:
-    warning('No files were modified!')
-
-
 class CodeQL(Executable):
 
   def __init__(self, distdir, additional_packs=None, search_path=None):
@@ -650,14 +538,11 @@ class CodeQL(Executable):
       shutil.copyfile(qlpackyml_backup_file, qlpackyml(ppath))
 
 
-  def autoversion(self, ppath, outdir, mode, fail):
-
-    if abspath(ppath) != abspath(outdir):
-      shutil.copytree(ppath, outdir, dirs_exist_ok=False)
+  def autoversion(self, ppath, mode, fail):
 
     # set version and check uploadability
-    packname = get_pack_name(outdir)
-    packversion = get_pack_version(outdir)
+    packname = get_pack_name(ppath)
+    packversion = get_pack_version(ppath)
 
     def success():
       info('Package does not exist yet, upload will succeed.')
@@ -686,7 +571,7 @@ class CodeQL(Executable):
       )
 
       if latestpeer:
-        identical = cmp_packs(outdir, latestpeer)
+        identical = cmp_packs(ppath, latestpeer)
         if identical:
           warning('This pack and its latest version in the registry are identical!')
           if fail:
@@ -695,7 +580,7 @@ class CodeQL(Executable):
           info('This pack and its latest version in the registry differ!')
 
         newv = set_pack_version(
-          outdir,
+          ppath,
           add_versions(
             get_pack_version(latestpeer),
             '0.0.1',
@@ -714,7 +599,7 @@ class CodeQL(Executable):
         match_cli=False
       ):
         info('Package %s@%s already exists.' % (packname, packversion))
-        return self.autoversion(outdir, outdir, 'new', fail)
+        return self.autoversion(ppath, 'new', fail)
 
       else:
         success()
@@ -733,7 +618,7 @@ class CodeQL(Executable):
     )
 
 
-  def create(self, ppath, output, tmppath):
+  def create_inplace(self, ppath, tmppath):
     self(
       'pack', 'create',
       '--threads', '0',
@@ -748,9 +633,27 @@ class CodeQL(Executable):
       get_pack_version(ppath),
     )
 
-    if isdir(output):
-      shutil.rmtree(output)
-    shutil.move(tmppack, output)
+    clear_dir(ppath)
+    dir_util.copy_tree(tmppack, ppath)
+    shutil.rmtree(tmppath)
+
+
+  def create(self, ppath, outdir, tmppath):
+    self(
+      'pack', 'create',
+      '--threads', '0',
+      '--output', tmppath,
+      '-vv',
+      ppath
+    )
+
+    tmppack = join(
+      tmppath,
+      get_pack_name(ppath),
+      get_pack_version(ppath),
+    )
+
+    shutil.copytree(tmppack, outdir)
     shutil.rmtree(tmppath)
 
 
@@ -944,6 +847,20 @@ def copy2dir(srcroot, srcpattern, dstroot, dstdirpattern, hidden=False):
   return executed
 
 
+def set_ql_meta(qlfile, key, value):
+  before, metadata, after = dissect_query(file2str(qlfile))
+  modified = False
+  for i, (k, v) in enumerate(metadata):
+    if k == key:
+      metadata[i] = (key, value)
+      modified = True
+      break
+  if not modified:
+    metadata.append((key, value))
+  str2file(qlfile, assemble_query(before, metadata, after))
+  info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, qlfile))
+
+
 def dissect_query(qlstr):
   PATTERN_METADATA = re.compile('^(.*?)/\*\*(.*?)\*/(.*)$', flags=re.DOTALL)
   PATTERN_METADATA_LINE_SEP = re.compile('^\s*\*?\s*@', flags=re.MULTILINE)
@@ -973,3 +890,23 @@ def assemble_query(before, metadata, after):
     md_section = md_section + ('\n * @%s %s' % (k, v))
   md_section = md_section + '\n */'
   return before + md_section + after
+
+
+def is_qlfile(path):
+  return isfile(path) and splitext(path)[1] == '.ql'
+
+
+def is_qllfile(path):
+  return isfile(path) and splitext(path)[1] == '.qll'
+
+
+def has_import(qlfile, module):
+  PATTERN_IMPORT = re.compile('^\s*import\s+(%s).*$' % module, flags=re.MULTILINE)
+  m = PATTERN_IMPORT.search(file2str(qlfile))
+  return True if m else False
+
+
+def ql_import(qlfile, module):
+  if not has_import(qlfile, module):
+    with open(qlfile, 'a') as f:
+      f.write('\nimport %s' % module)
