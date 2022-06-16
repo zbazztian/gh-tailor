@@ -139,7 +139,7 @@ def create(args):
 
 def autoversion(args):
   codeql = get_codeql(args, args.pack)
-  sys.exit(codeql.autoversion(pack, args.mode, args.fail))
+  sys.exit(codeql.autoversion(args.pack, args.mode, args.fail))
 
 
 def publish(args):
