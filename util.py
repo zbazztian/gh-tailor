@@ -914,3 +914,81 @@ def ql_import(qlfile, module):
   if not has_import(qlfile, module):
     with open(qlfile, 'a') as f:
       f.write('\nimport %s' % module)
+
+
+def normalize_settings(settings):
+  if type(settings) != dict:
+    error('The settings must be presented as a dictionary!')
+  for k in settings.keys():
+    if type(k) != str:
+      error('Settings keys must be strings! "%s" isn\'t.' % str(k))
+    v = settings[k]
+    if type(v) == str:
+      settings[k] = [v]
+    elif type(v) == list:
+      for i in v:
+        if type(i) != str:
+          error('Settings values must either be strings or arrays of strings! "%s" is neither.' % str(v))
+    else:
+      error('Settings values must either be strings or arrays of strings! "%s" is neither.' % str(v))
+  return settings
+
+
+def hash_settings(settings):
+  h = hashlib.sha1()
+  for k in sorted(settings.keys()):
+    h.update(k.encode('utf-8'))
+    for i in sorted(settings[k]):
+      h.update(i.encode('utf-8'))
+  return h.hexdigest()
+
+
+def customize(ppath, settingsfile, qlfiles, priority):
+  with open(settingsfile, 'r') as f:
+    settings = normalize_settings(yaml.safe_load(f))
+  shutil.copytree(
+    join(dirname(__file__), 'bases', 'java', 'tailor'),
+    join(ppath, 'tailor'),
+    dirs_exist_ok=True
+  )
+  module = 'UserSettings_%s' % hash_settings(settings)
+  str2file(
+    join(ppath, 'tailor', '%s.qll' % module),
+    generate_settings_ql(settings, priority, module)
+  )
+  for qlf in qlfiles:
+    ql_import(qlf, 'tailor.%s' % module)
+
+
+def generate_settings_ql(settings, priority, name):
+  h = hash_settings(settings)
+
+  keyvalues = ''
+  num_items = len(settings.items())
+  for j, (k, vs) in enumerate(settings.items()):
+    values = ''
+    num_values = len(vs)
+    for i, v in enumerate(vs):
+      values = values + '\n      "{v}"{comma}'.format(
+        v=v,
+        comma=',' if (i < num_values - 1) else ''
+      )
+    keyvalues = keyvalues + '\n    k = "{k}" and v = [{values}\n    ]{connector}'.format(
+      connector=' or' if j < (num_items - 1) else '',
+      k=k,
+      values=values
+    )
+
+  return textwrap.dedent('''
+    import tailor.Customizations
+
+    class {classname} extends Settings::Provider {{
+      {classname}(){{ this = {priority} }}
+      override predicate assign(string k, string v) {{{keyvalues}
+      }}
+    }}
+  ''').format(
+    priority=priority,
+    classname=name,
+    keyvalues=keyvalues,
+  )

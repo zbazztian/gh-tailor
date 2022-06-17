@@ -110,7 +110,12 @@ def ql_import(args):
 
 
 def customize(args):
-  pass
+  util.customize(
+    args.pack,
+    args.settingsfile,
+    args.qlfiles,
+    args.priority
+  )
 
 
 def install(args):
@@ -252,7 +257,7 @@ def main():
     '--additional-packs',
     required=False,
     default=None,
-    help='Additional search path for QL packs',
+    help='Additional search path for QL packs. Repeatable.',
   )
 
   parser = argparse.ArgumentParser(
@@ -347,6 +352,7 @@ def main():
   )
   sp.add_argument(
     'qlfiles',
+    metavar='qlfile',
     nargs='+',
     type=mustbeqlfile,
     help='One or more query files.',
@@ -366,6 +372,7 @@ def main():
   )
   sp.add_argument(
     'qlfiles',
+    metavar='qlfile',
     nargs='+',
     type=mustbeqlorqllfile,
     help='One or more query or library files.',
@@ -383,6 +390,7 @@ def main():
     '--priority', '-p',
     type=int,
     required=False,
+    default=0,
     help='The priority of the settings.',
   )
   sp.add_argument(
@@ -392,6 +400,7 @@ def main():
   )
   sp.add_argument(
     'qlfiles',
+    metavar='qlfile',
     nargs='+',
     type=mustbeqlorqllfile,
     help='One or more query or library files.',
