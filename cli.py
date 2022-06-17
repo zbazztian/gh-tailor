@@ -64,27 +64,6 @@ def init(args):
   )
 
 
-def set_pack_meta(args):
-  if args.name:
-    util.set_pack_name(args.pack, args.name)
-  if args.version:
-    util.set_pack_version(args.pack, args.version)
-  if args.default_suite:
-    util.set_pack_defaultsuite(args.pack, args.default_suite)
-
-
-def set_ql_meta(args):
-  for qlf in args.qlfiles:
-    for k, v in args.meta:
-      util.set_ql_meta(qlf, k, v)
-
-
-def ql_import(args):
-  for qlf in args.qlfiles:
-    for m in args.module:
-      util.ql_import(qlf, m)
-
-
 def download(args):
   codeql = get_codeql(
     args,
@@ -107,6 +86,31 @@ def download(args):
       pack,
       args.outdir,
     )
+
+
+def set_pack_meta(args):
+  if args.name:
+    util.set_pack_name(args.pack, args.name)
+  if args.version:
+    util.set_pack_version(args.pack, args.version)
+  if args.default_suite:
+    util.set_pack_defaultsuite(args.pack, args.default_suite)
+
+
+def set_ql_meta(args):
+  for qlf in args.qlfiles:
+    for k, v in args.meta:
+      util.set_ql_meta(qlf, k, v)
+
+
+def ql_import(args):
+  for qlf in args.qlfiles:
+    for m in args.module:
+      util.ql_import(qlf, m)
+
+
+def customize(args):
+  pass
 
 
 def install(args):
@@ -136,6 +140,17 @@ def create(args):
     codeql.create(args.pack, args.outdir, tmppackdir)
 
 
+def test(args):
+  for tp in args.testpacks:
+    codeql = get_codeql(args, tp)
+    codeql(
+      'test', 'run',
+      '--additional-packs', args.pack,
+      '--additional-packs', join(args.pack, '.codeql', 'libraries'),
+      tp
+    )
+
+
 def autoversion(args):
   codeql = get_codeql(args, args.pack)
   sys.exit(codeql.autoversion(args.pack, args.mode, args.fail))
@@ -154,6 +169,12 @@ def publish(args):
     '-vv',
     '--file', out
   )
+
+
+def mustbefile(path):
+  if not isfile(path):
+    error('"%s" is not a file!' % path)
+  return path
 
 
 def mustbeqlorqllfile(path):
@@ -241,171 +262,213 @@ def main():
 
   subparsers = parser.add_subparsers()
 
-  initparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'init',
     parents=[outbase],
     help='Create a new tailor project',
     description='Create a skeleton for a tailor project in the specified directory',
   )
-  initparser.add_argument(
+  sp.add_argument(
     '--language', '-l',
     required=True,
     choices=['java', 'javascript', 'python', 'cpp', 'go', 'ruby', 'csharp'],
     help='Language',
   )
-  initparser.add_argument(
+  sp.add_argument(
     '--base-name',
     required=False,
     default=None,
     type=mustbepackname,
     help='The name of the packet to be customized.',
   )
-  initparser.add_argument(
+  sp.add_argument(
     '--out-name',
     required=False,
     default=None,
     type=mustbepackname,
     help='The name of the resulting package.',
   )
-  initparser.set_defaults(func=init)
+  sp.set_defaults(func=init)
 
-  downloadparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'download',
     parents=[distbase, outbase],
     help='Download a (Code)QL pack from the registry.',
     description='Download a (Code)QL pack from the registry.',
   )
-  downloadparser.add_argument(
+  sp.add_argument(
     'name',
     type=mustbepackname,
     help='The name of the package to download.',
   )
-  downloadparser.add_argument(
+  sp.add_argument(
     '--version', '-v',
     required=False,
     default='*',
     help='The version of the package to download.',
   )
-  downloadparser.set_defaults(func=download)
+  sp.set_defaults(func=download)
 
-  setpackmetaparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'set-pack-meta',
     parents=[packbase],
     help='Modify the metadata values of a pack.',
     description='Modify the metadata values of a pack.',
   )
-  setpackmetaparser.add_argument(
+  sp.add_argument(
     '--name', '-n',
     required=False,
     type=mustbepackname,
     help='The value of the name field.',
   )
-  setpackmetaparser.add_argument(
+  sp.add_argument(
     '--version', '-v',
     required=False,
     help='The value of the version field.',
   )
-  setpackmetaparser.add_argument(
+  sp.add_argument(
     '--default-suite', '-d',
     required=False,
     help='The value of the defaultSuiteFile field.',
   )
-  setpackmetaparser.set_defaults(func=set_pack_meta)
+  sp.set_defaults(func=set_pack_meta)
 
-  setqlmetaparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'set-ql-meta',
     help='Modify the metadata values in a CodeQL query.',
     description='Modify the metadata values in a CodeQL query.',
   )
-  setqlmetaparser.add_argument(
+  sp.add_argument(
     '--meta', '-m',
     nargs=2,
     action='append',
     required=True,
     help='The meta key and meta value to set. Repeatable.',
   )
-  setqlmetaparser.add_argument(
+  sp.add_argument(
     'qlfiles',
     nargs='+',
     type=mustbeqlfile,
     help='One or more query files.',
   )
-  setqlmetaparser.set_defaults(func=set_ql_meta)
+  sp.set_defaults(func=set_ql_meta)
 
-  qlimportparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'ql-import',
     help='Import a module into a CodeQL query or library file.',
     description='Import a module into a CodeQL query or library file.',
   )
-  qlimportparser.add_argument(
+  sp.add_argument(
     '--module', '-m',
     action='append',
     required=True,
     help='The name of the fully-qualified module to import. Repeatable.',
   )
-  qlimportparser.add_argument(
+  sp.add_argument(
     'qlfiles',
     nargs='+',
     type=mustbeqlorqllfile,
     help='One or more query or library files.',
   )
-  qlimportparser.set_defaults(func=ql_import)
+  sp.set_defaults(func=ql_import)
 
-  installparser = subparsers.add_parser(
+
+  sp = subparsers.add_parser(
+    'customize',
+    parents=[packbase],
+    help='Generate and inject CodeQL into an existing pack, based on a settings file.',
+    description='Generate and inject CodeQL into an existing pack, based on a settings file.',
+  )
+  sp.add_argument(
+    '--priority', '-p',
+    type=int,
+    required=False,
+    help='The priority of the settings.',
+  )
+  sp.add_argument(
+    'settingsfile',
+    type=mustbefile,
+    help='A yaml file with customization settings.',
+  )
+  sp.add_argument(
+    'qlfiles',
+    nargs='+',
+    type=mustbeqlorqllfile,
+    help='One or more query or library files.',
+  )
+  sp.set_defaults(func=customize)
+
+
+  sp = subparsers.add_parser(
     'install',
     parents=[distbase, packbase],
     help='Install a (Code)QL pack\'s dependencies.',
     description='Install a (Code)QL pack\'s dependencies.',
   )
-  installparser.add_argument(
+  sp.add_argument(
     '--mode', '-m',
     required=False,
     default='merge-update',
     choices=['merge-update', 'update'],
   )
-  installparser.set_defaults(func=install)
+  sp.set_defaults(func=install)
 
-  createparser = subparsers.add_parser(
+
+  sp = subparsers.add_parser(
     'create',
     parents=[distbase, packbase, outbase],
     help='Compile a (Code)QL pack.',
     description='Compile a (Code)QL pack.',
   )
-  createparser.add_argument(
+  sp.add_argument(
     '--in-place', '-i',
     required=False,
     action='store_true',
     help='Replace the given pack with the result (DESTRUCTIVE OPERATION!).',
   )
-  createparser.set_defaults(func=create)
+  sp.set_defaults(func=create)
 
-  autoversionparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
+    'test',
+    parents=[distbase, packbase],
+    help='Run one or more test packs against a given pack.',
+    description='Run one or more test packs against a given pack.',
+  )
+  sp.add_argument(
+    'testpacks',
+    type=mustbepack,
+    nargs='+',
+    help='One or more CodeQL test packs.',
+  )
+  sp.set_defaults(func=test)
+
+  sp = subparsers.add_parser(
     'autoversion',
     parents=[distbase, packbase],
     help='Check or automatically bump version numbers of (Code)QL packs.',
     description='Check or automatically bump version numbers of (Code)QL packs.',
   )
-  autoversionparser.add_argument(
+  sp.add_argument(
     '--mode', '-m',
     required=False,
     default='new',
     choices=['manual', 'new', 'new-on-collision'],
   )
-  autoversionparser.add_argument(
+  sp.add_argument(
     '--fail',
     required=False,
     action='store_true',
     help='Treat warnings as errors.',
   )
-  autoversionparser.set_defaults(func=autoversion)
+  sp.set_defaults(func=autoversion)
 
-  publishparser = subparsers.add_parser(
+  sp = subparsers.add_parser(
     'publish',
     parents=[distbase, packbase],
     help='Publish a compiled CodeQL pack.',
     description='Publish a compiled CodeQL pack.',
   )
-  publishparser.set_defaults(func=publish)
+  sp.set_defaults(func=publish)
 
   def print_usage(args):
     print(parser.format_usage())

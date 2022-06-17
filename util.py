@@ -19,6 +19,10 @@ import globber
 from distutils import dir_util
 
 
+def searchpath_append(searchpath, appendme):
+  return (searchpath + ':' + appendme) if searchpath else appendme
+
+
 def clear_dir(dirpath):
   for n in os.listdir(dirpath):
     f = join(dirpath, n)
@@ -257,8 +261,8 @@ def listdir(dirpath, hidden=False):
       yield absf
 
 
-def dir_hash(dirpath):
-  def file_hash(path, h):
+def hash_dir(dirpath):
+  def hash_file(path, h):
     if islink(path):
       h.update(b'link')
       h.update(
@@ -293,17 +297,17 @@ def dir_hash(dirpath):
 
   h = hashlib.sha1()
   for f in listdir(dirpath):
-    file_hash(f, h)
+    hash_file(f, h)
     h.update(relpath(f, dirpath).encode('utf-8'))
   return h.hexdigest()
 
 
-def pack_hash(ppath):
-  return dir_hash(ppath)
+def hash_pack(ppath):
+  return hash_dir(ppath)
 
 
 def cmp_packs(ppath1, ppath2):
-  return pack_hash(ppath1) == pack_hash(ppath2)
+  return hash_pack(ppath1) == hash_pack(ppath2)
 
 
 def set_pack_info(ppath, info):
