@@ -1,19 +1,11 @@
 import java
 
-module Settings {
-  bindingset[description]
-  predicate parse(string description, string key, string value) {
-    exists(int i | i = description.indexOf("=", 0, 0) |
-      key = description.prefix(i).trim() and
-      value = description.suffix(i + 1).trim()
-    )
-  }
-
-  abstract class Provider extends int {
+module Tailor {
+  abstract class Settings extends int {
     bindingset[this]
-    Provider() { any() }
+    Settings() { any() }
 
-    Provider getParent() { result = max(Provider p | p < this) }
+    Settings getParent() { result = max(Settings p | p < this) }
 
     predicate rows(string key, string value) {
       if this.assign(key, _) then this.assign(key, value) else getParent().rows(key, value)
@@ -22,7 +14,29 @@ module Settings {
     predicate assign(string key, string value) { none() }
   }
 
-  string values(string key) { any(Provider p).rows(key, result) }
+  string values(string key) { any(Settings p).rows(key, result) }
 
-  string prioritizedValues(string key) { max(Provider p).rows(key, result) }
+  string prioritizedValues(string key) { max(Settings p).rows(key, result) }
+
+  int minPriority(){
+    result = -2147483648
+  }
+
+  int maxPriority(){
+    result = 2147483647
+  }
+
+  predicate enabled(string key){
+    prioritizedValues(key) = "true"
+  }
+
+  external predicate external_customization_settings(string key, string value);
+
+  private final class ExternalUserSettings extends Settings {
+    ExternalUserSettings() { this = maxPriority() }
+
+    override predicate assign(string key, string value) {
+      external_customization_settings(key, value)
+    }
+  }
 }
