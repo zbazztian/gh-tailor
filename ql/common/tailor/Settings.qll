@@ -29,14 +29,4 @@ module Tailor {
   predicate enabled(string key){
     prioritizedValues(key) = "true"
   }
-
-  external predicate external_customization_settings(string key, string value);
-
-  private final class ExternalUserSettings extends Settings {
-    ExternalUserSettings() { this = maxPriority() }
-
-    override predicate assign(string key, string value) {
-      external_customization_settings(key, value)
-    }
-  }
 }
