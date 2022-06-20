@@ -38,101 +38,124 @@ def clear_dir(dirpath):
       shutil.rmtree(f)
 
 
+def scriptdir():
+  return dirname(__file__)
+
+
+def templatedir():
+  return join(scriptdir(), 'templates')
+
+
 def tailor_template(
-  lang, base_name=None,
-  out_name=None,
+  outdir,
+  lang, basename,
+  outname,
 ):
 
-  def make_file_pattern():
-    if lang == 'csharp':
-      return 'Security Features/**/*.ql'
-    elif lang == 'ruby':
-      return 'queries/security/cwe-*/*.ql'
-    elif lang in ['java', 'cpp']:
-      return 'Security/CWE/CWE-*/*.ql'
-    elif lang in ['python', 'javascript', 'go']:
-      return 'Security/CWE-*/*.ql'
-
-  return textwrap.dedent('''
-    # base pack: the package you want to tailor
-    # this may contain a version range
-    base:
-      name: "{base_name}"
-      version: "{base_version}"
-
-    instructions:
-      # set the resulting pack's name
-      - type: set-name
-        value: "{out_name}"
-
-      # set the resulting pack's version
-      - type: set-version
-        value: "{out_version}"
-
-      # set the default query suite to run when the pack
-      # is used for analysis
-      - type: set-default-suite
-        value: "{default_suite}"
-
-      # set the metadata of the resulting pack's
-      # query files to the given value
-      #- type: set-metadata
-      #  key: "security-severity"
-      #  value: "9.9"
-      #  dst: {security_queries}
-
-      # append the given value to all specified files
-      - type: append
-        value: "import TailorCustomizations"
-        dst: "{security_queries}"
-
-      # clone the given repository, check out the given
-      # branch and copy the files specified to
-      # the resulting pack's root directory
-      - type: github-copy
-        repository: "zbazztian/gh-tailor"
-        revision: main
-        src: "bases/java/tailor"
-        dst: "/"
-
-      # copy all files in the tailor project's root directory
-      # to the resulting pack's root directory
-      - type: copy
-        src: "/*"
-        dst: "/"
-  ''').format(
-    base_name=base_name or ('codeql/%s-queries' % lang),
-    base_version='*',
-    out_name=out_name or 'scope/packname',
-    out_version='0.0.0',
-    default_suite='codeql-suites/%s-code-scanning.qls' % lang,
-    security_queries=make_file_pattern()
+  shutil.copytree(
+    join(templatedir(), 'scripts'),
+    outdir
   )
 
-
-def tailor_customizations_qll(lang):
-  return textwrap.dedent('''
-    import tailor.Customizations
-
-    class MyTailorSettings extends Settings::Provider {{
-      MyTailorSettings(){{
-        // The priority of these settings. If other settings
-        // classes exist, the priority governs which one will
-        // take precedence.
-        this = 0
-      }}
-
-      override predicate assign(string key, string value) {{
-        // INSERT YOUR SETTINGS HERE //
-        // For example:
-        key = "{lang}.local_sources" and value = "true"
-        // or
-        // key = "{lang}.lenient_taintflow" and value = "false"
-      }}
-    }}
-  ''').format(
-    lang=lang
+  shutil.copyfile(
+    join(templatedir(), lang, 'settings.yml'),
+    join(outdir, 'settings.yml')
   )
+
+  shutil.copytree(
+    join(templatedir(), lang, 'tests'),
+    join(outdir, 'tests')
+  )
+
+  testpack = join(outdir, 'tests')
+  pack_add_dep(
+    testpack,
+    outname,
+    '*'
+  )
+  set_pack_name(
+    testpack,
+    '%s-tests' % outname,
+  )
+
+  str2file(
+    join(outdir, 'create'),
+    file2str(join(outdir, 'create')).format(
+      basename=basename,
+      outname=outname,
+      defaultsuite='codeql-suites/java-code-scanning.qls',
+      querypath1='Security/CWE/CWE-079/XSS.ql',
+      querypath2='Security/CWE/CWE-022/TaintedPath.ql',
+      securityfolder='Security'
+    )
+  )
+  return
+
+#  def make_file_pattern():
+#    if lang == 'csharp':
+#      return 'Security Features/**/*.ql'
+#    elif lang == 'ruby':
+#      return 'queries/security/cwe-*/*.ql'
+#    elif lang in ['java', 'cpp']:
+#      return 'Security/CWE/CWE-*/*.ql'
+#    elif lang in ['python', 'javascript', 'go']:
+#      return 'Security/CWE-*/*.ql'
+#
+#  return textwrap.dedent('''
+#    # base pack: the package you want to tailor
+#    # this may contain a version range
+#    base:
+#      name: "{base_name}"
+#      version: "{base_version}"
+#
+#    instructions:
+#      # set the resulting pack's name
+#      - type: set-name
+#        value: "{out_name}"
+#
+#      # set the resulting pack's version
+#      - type: set-version
+#        value: "{out_version}"
+#
+#      # set the default query suite to run when the pack
+#      # is used for analysis
+#      - type: set-default-suite
+#        value: "{default_suite}"
+#
+#      # set the metadata of the resulting pack's
+#      # query files to the given value
+#      #- type: set-metadata
+#      #  key: "security-severity"
+#      #  value: "9.9"
+#      #  dst: {security_queries}
+#
+#      # append the given value to all specified files
+#      - type: append
+#        value: "import TailorCustomizations"
+#        dst: "{security_queries}"
+#
+#      # clone the given repository, check out the given
+#      # branch and copy the files specified to
+#      # the resulting pack's root directory
+#      - type: github-copy
+#        repository: "zbazztian/gh-tailor"
+#        revision: main
+#        src: "bases/java/tailor"
+#        dst: "/"
+#
+#      # copy all files in the tailor project's root directory
+#      # to the resulting pack's root directory
+#      - type: copy
+#        src: "/*"
+#        dst: "/"
+#  ''').format(
+#    base_name=base_name or ('codeql/%s-queries' % lang),
+#    base_version='*',
+#    out_name=out_name or 'scope/packname',
+#    out_version='0.0.0',
+#    default_suite='codeql-suites/%s-code-scanning.qls' % lang,
+#    security_queries=make_file_pattern()
+#  )
 
 
 def hashstr(s):
@@ -378,7 +401,7 @@ def set_pack_defaultsuite(ppath, value):
 
 
 def pack_add_dep(ppath, name, version):
-  deps = get_pack_value(ppath, 'dependencies')
+  deps = get_pack_value(ppath, 'dependencies', {})
   deps[name] = version
   set_pack_value(ppath, 'dependencies', deps)
 

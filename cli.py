@@ -42,25 +42,11 @@ def get_codeql(args, location):
 
 
 def init(args):
-  if util.is_tailorproject(args.project):
-    error('"%s" is already a project!' % (args.project))
-
-  os.makedirs(args.project, exist_ok=True)
-
-  util.str2file(
-    util.tailoryml(args.project),
-    util.tailor_template(
-      args.language,
-      base_name=args.base_name,
-      out_name=args.out_name
-    )
-  )
-
-  util.str2file(
-    join(args.project, 'TailorCustomizations.qll'),
-    util.tailor_customizations_qll(
-      args.language,
-    )
+  util.tailor_template(
+    args.outdir,
+    args.language,
+    args.basename,
+    args.outname
   )
 
 
@@ -270,7 +256,6 @@ def main():
 
   sp = subparsers.add_parser(
     'init',
-    parents=[outbase],
     help='Create a new tailor project',
     description='Create a skeleton for a tailor project in the specified directory',
   )
@@ -281,18 +266,21 @@ def main():
     help='Language',
   )
   sp.add_argument(
-    '--base-name',
-    required=False,
-    default=None,
+    '--basename', '-b',
+    required=True,
     type=mustbepackname,
     help='The name of the packet to be customized.',
   )
   sp.add_argument(
-    '--out-name',
-    required=False,
-    default=None,
+    '--outname', '-n',
+    required=True,
     type=mustbepackname,
     help='The name of the resulting package.',
+  )
+  sp.add_argument(
+    'outdir',
+    type=mustnotexist,
+    help='A directory to create the tailor project in.',
   )
   sp.set_defaults(func=init)
 
