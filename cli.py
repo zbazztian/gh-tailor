@@ -105,7 +105,7 @@ def set_ql_meta(args):
 
 def ql_import(args):
   for qlf in args.qlfiles:
-    for m in args.module:
+    for m in args.modules:
       util.ql_import(qlf, m)
 
 
@@ -114,7 +114,8 @@ def customize(args):
     args.pack,
     args.settingsfile,
     args.qlfiles,
-    args.priority
+    args.priority,
+    args.modules
   )
 
 
@@ -367,6 +368,7 @@ def main():
   sp.add_argument(
     '--module', '-m',
     action='append',
+    dest='modules',
     required=True,
     help='The name of the fully-qualified module to import. Repeatable.',
   )
@@ -392,6 +394,13 @@ def main():
     required=False,
     default=0,
     help='The priority of the settings.',
+  )
+  sp.add_argument(
+    '--module', '-m',
+    action='append',
+    dest='modules',
+    required=False,
+    help='The name of a fully-qualified module to import into the generated settings qll file. Repeatable.',
   )
   sp.add_argument(
     'settingsfile',

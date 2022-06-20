@@ -968,51 +968,55 @@ def hash_settings(settings):
   return h.hexdigest()
 
 
-def customize(ppath, settingsfile, qlfiles, priority):
+def customize(ppath, settingsfile, qlfiles, priority, modules):
   with open(settingsfile, 'r') as f:
     settings = normalize_settings(yaml.safe_load(f))
+
   shutil.copytree(
-    join(dirname(__file__), 'bases', 'java', 'tailor'),
+    join(dirname(__file__), 'ql', 'common', 'tailor'),
     join(ppath, 'tailor'),
     dirs_exist_ok=True
   )
-  module = 'UserSettings_%s' % hash_settings(settings)
-  str2file(
-    join(ppath, 'tailor', '%s.qll' % module),
-    generate_settings_ql(settings, priority, module)
-  )
-  for qlf in qlfiles:
-    ql_import(qlf, 'tailor.%s' % module)
 
-
-def generate_settings_ql(settings, priority, name):
-  h = hash_settings(settings)
-
-  keyvalues = ''
-  num_items = len(settings.items())
-  for j, (k, vs) in enumerate(settings.items()):
-    values = ''
-    num_values = len(vs)
-    for i, v in enumerate(vs):
-      values = values + '\n      "{v}"{comma}'.format(
-        v=v,
-        comma=',' if (i < num_values - 1) else ''
-      )
-    keyvalues = keyvalues + '\n    k = "{k}" and v = [{values}\n    ]{connector}'.format(
-      connector=' or' if j < (num_items - 1) else '',
-      k=k,
-      values=values
+  if modules is None:
+    modules = ['tailor.Customizations']
+    shutil.copytree(
+      join(dirname(__file__), 'ql', get_pack_lang(ppath), 'tailor'),
+      join(ppath, 'tailor'),
+      dirs_exist_ok=True
     )
 
-  return textwrap.dedent('''
-    import tailor.Customizations
+  modules.append('tailor.Settings')
 
-    class {classname} extends Settings::Provider {{
+  usmod = 'UserSettings_%s' % hash_settings(settings)
+
+  str2file(
+    join(ppath, 'tailor', '%s.qll' % usmod),
+    generate_settings_ql(settings, priority, usmod, modules)
+  )
+
+  for qlf in qlfiles:
+    ql_import(qlf, 'tailor.%s' % usmod)
+
+
+def generate_settings_ql(settings, priority, name, modules):
+  keyvalues = ' or'.join(
+    '\n    k = "{k}" and v = [{values}\n    ]'.format(
+      k=k,
+      values=','.join('\n      "%s"' % v for v in vs)
+    ) for k, vs in settings.items()
+  )
+
+  return textwrap.dedent('''
+    {modules}
+
+    class {classname} extends Tailor::Settings {{
       {classname}(){{ this = {priority} }}
       override predicate assign(string k, string v) {{{keyvalues}
       }}
     }}
   ''').format(
+    modules='\n'.join('import %s' % m for m in modules),
     priority=priority,
     classname=name,
     keyvalues=keyvalues,
