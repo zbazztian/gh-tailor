@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+cd -- "$(dirname -- "$0")"
+
+if [ ! -d "pack" ]; then
+  echo 'Pack does not exist. Run "create" first.'
+  exit 1
+fi
+
+gh tailor test pack tests

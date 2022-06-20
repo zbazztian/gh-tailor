@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+cd -- "$(dirname -- "$0")"
+
+rm -rf pack
+
+gh tailor download --outdir pack "{basename}"
+
+gh tailor \
+  set-pack-meta \
+  --name "{outname}" \
+  --version "0.0.0" \
+  --default-suite "{defaultsuite}" \
+  pack
+
+# modify a query's metadata, e.g.: increase the security-severity
+#gh tailor \
+#  set-ql-meta \
+#  -m "security-severity" "9.0" \
+#  pack/{querypath1}
+
+# inject customizations
+cat <<EOF | xargs gh tailor customize pack settings.yml
+  pack/{querypath1}
+  pack/{querypath2}
+EOF
+
+# alternatively, one may also include arbitrary modules into a set of queries:
+#find 'pack/{securityfolder}' -name '*.ql' -print0 | xargs -0 gh tailor ql-import "my.qualified.module"
+
+gh tailor create -i pack
