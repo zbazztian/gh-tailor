@@ -19,6 +19,12 @@ import globber
 from distutils import dir_util
 
 
+LANGUAGES = [
+  'java', 'javascript', 'python',
+  'ruby', 'csharp', 'cpp', 'go'
+]
+
+
 def searchpath_append(searchpath, appendme):
   return (searchpath + ':' + appendme) if searchpath else appendme
 
@@ -196,6 +202,25 @@ def qlpackyml(ppath):
 
 def is_pack(ppath):
   return isfile(qlpackyml(ppath))
+
+
+def get_pack_lang(ppath):
+  info = get_pack_info(ppath)
+  lang = info.get('extractor', None)
+  if lang is None:
+    for l in LANGUAGES:
+      if isdir(
+        join(
+          ppath,
+          '.codeql',
+          'libraries',
+          'codeql',
+          '%s-all' % l
+        )
+      ):
+        lang = l
+        break
+  return lang
 
 
 def get_pack_info(ppath):

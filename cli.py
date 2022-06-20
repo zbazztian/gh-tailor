@@ -276,7 +276,7 @@ def main():
   sp.add_argument(
     '--language', '-l',
     required=True,
-    choices=['java', 'javascript', 'python', 'cpp', 'go', 'ruby', 'csharp'],
+    choices=util.LANGUAGES,
     help='Language',
   )
   sp.add_argument(
