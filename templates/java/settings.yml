@@ -62,7 +62,7 @@ java.local_sources: "false"
 
 # namespace; type; subtypes; name; signature; ext; output; kind
 #java.sources:
-  #- "test.cwe079.cwe.examples;XSS;true;unknownSource;;;ReturnValue;remote"
+  #- "test.cwe079.cwe.examples;Test;true;unknownSource;;;ReturnValue;remote"
   #- "org.apache.commons.io;IOUtils;true;toCharArray;;;ReturnValue;remote"
   #- "javax.servlet;ServletRequest;false;getParameterValues;(String);;ReturnValue;remote"
   #- "javax.servlet;ServletRequest;false;getParameterMap;();;ReturnValue;remote"
