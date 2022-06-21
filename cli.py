@@ -11,6 +11,7 @@ import tempfile
 import shutil
 import tarfile
 import atexit
+from subprocess import CalledProcessError
 
 
 def get_codeql(args, location):
@@ -489,4 +490,7 @@ def cleanup():
   shutil.rmtree(tempdir)
 
 
-main()
+try:
+  main()
+except CalledProcessError as e:
+  error('Subprocess "%s" failed with code "%s"!' % (e.cmd, e.returncode))
