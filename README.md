@@ -1,8 +1,8 @@
-### Tailor ###
+# Tailor #
 
 A tool to customize CodeQL packs.
 
-## Installation ##
+# Installation #
 
 ```sh
 gh extensions install "zbazztian/gh-tailor"
@@ -13,7 +13,7 @@ gh extensions install "github/gh-codeql"
 
 The `github/gh-codeql` extension is optional, but makes using Tailor more convenient. Without it one will either have to supply a valid CodeQL CLI distribution via the `--dist` argument or by puttin it on `${PATH}`.
 
-## Usage ##
+# Usage #
 
 ```sh
 gh tailor init \
