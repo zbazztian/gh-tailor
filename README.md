@@ -5,7 +5,7 @@ A tool to customize CodeQL packs.
 ## Installation ##
 
 ```sh
-gh extensions install zbazztian/gh-tailor
+gh extensions install "zbazztian/gh-tailor"
 
 # optional:
 gh extensions install "github/gh-codeql"
