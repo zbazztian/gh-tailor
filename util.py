@@ -324,6 +324,7 @@ def hash_dir(dirpath):
           y = yaml.safe_load(f) or {}
           y.get('buildMetadata', {}) \
            .pop('creationTime', None)
+          y.pop('version', None)
           h.update(
             pprint.pformat(
               y,
