@@ -1,6 +1,6 @@
 # Tailor #
 
-A tool to customize CodeQL packs.
+A tool for customizing CodeQL packs.
 
 ### Installation ###
 
