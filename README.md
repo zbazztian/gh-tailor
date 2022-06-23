@@ -8,7 +8,7 @@ A tool to customize CodeQL packs.
 gh extensions install zbazztian/gh-tailor
 
 # optional:
-gh extensions install github/gh-codeql
+gh extensions install "github/gh-codeql"
 ```
 
 The `github/gh-codeql` extension is optional, but makes using Tailor more convenient. Without it one will either have to supply a valid CodeQL CLI distribution via the `--dist` argument or by puttin it on `${PATH}`.
@@ -18,8 +18,8 @@ The `github/gh-codeql` extension is optional, but makes using Tailor more conven
 ```sh
 gh tailor init \
   -l java \
-  -b 'codeql/java-queries' \
-  -n 'zbazztian/customized-java-queries' \
+  -b "codeql/java-queries" \
+  -n "zbazztian/customized-java-queries" \
   customized-java-queries
 ```
 
