@@ -26,6 +26,6 @@ cat <<EOF | xargs gh tailor customize pack settings.yml
 EOF
 
 # alternatively, one may also include arbitrary modules into a set of queries:
-#find 'pack/{securityfolder}' -name '*.ql' -print0 | xargs -0 gh tailor ql-import "my.qualified.module"
+#find 'pack/{securityfolder}' -name '*.ql' -print0 | xargs -0 gh tailor ql-import -m "my.qualified.module"
 
 gh tailor create -i pack

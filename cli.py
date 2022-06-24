@@ -358,6 +358,7 @@ def main():
     '--module', '-m',
     action='append',
     dest='modules',
+    metavar='module',
     required=True,
     help='The name of the fully-qualified module to import. Repeatable.',
   )
