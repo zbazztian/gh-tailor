@@ -1,0 +1,3 @@
+groups: [python, test]
+extractor: python
+tests: .

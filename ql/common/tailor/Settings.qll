@@ -1,5 +1,3 @@
-import java
-
 module Tailor {
   abstract class Settings extends int {
     bindingset[this]

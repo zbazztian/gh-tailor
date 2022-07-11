@@ -62,12 +62,19 @@ def tailor_template(
     join(outdir, 'settings.yml')
   )
 
+  testpack_template = join(templatedir(), lang, 'tests')
+  testpack = join(outdir, 'tests')
+
   shutil.copytree(
-    join(templatedir(), lang, 'tests'),
-    join(outdir, 'tests')
+    testpack_template,
+    testpack
   )
 
-  testpack = join(outdir, 'tests')
+  shutil.copytree(
+    join(templatedir(), lang, 'integration_test_code'),
+    join(outdir, 'integration_test_code')
+  )
+
   pack_add_dep(
     testpack,
     outname,
@@ -79,83 +86,37 @@ def tailor_template(
   )
 
   str2file(
+    join(outdir, 'integration-test'),
+    file2str(join(outdir, 'integration-test')).format(
+      outname=outname,
+      language=lang,
+    )
+  )
+
+  testqlref = lambda num: file2str(join(testpack_template, 'test_%s' % num, 'query.qlref')).strip()
+  str2file(
     join(outdir, 'create'),
     file2str(join(outdir, 'create')).format(
       basename=basename,
       outname=outname,
       defaultsuite='codeql-suites/java-code-scanning.qls',
-      querypath1='Security/CWE/CWE-079/XSS.ql',
-      querypath2='Security/CWE/CWE-022/TaintedPath.ql',
-      securityfolder='Security'
+      querypath1=testqlref(1),
+      querypath2=testqlref(2),
+      securityfolder=lang_security_query_dir(lang),
     )
   )
   return
 
-#  def make_file_pattern():
-#    if lang == 'csharp':
-#      return 'Security Features/**/*.ql'
-#    elif lang == 'ruby':
-#      return 'queries/security/cwe-*/*.ql'
-#    elif lang in ['java', 'cpp']:
-#      return 'Security/CWE/CWE-*/*.ql'
-#    elif lang in ['python', 'javascript', 'go']:
-#      return 'Security/CWE-*/*.ql'
-#
-#  return textwrap.dedent('''
-#    # base pack: the package you want to tailor
-#    # this may contain a version range
-#    base:
-#      name: "{base_name}"
-#      version: "{base_version}"
-#
-#    instructions:
-#      # set the resulting pack's name
-#      - type: set-name
-#        value: "{out_name}"
-#
-#      # set the resulting pack's version
-#      - type: set-version
-#        value: "{out_version}"
-#
-#      # set the default query suite to run when the pack
-#      # is used for analysis
-#      - type: set-default-suite
-#        value: "{default_suite}"
-#
-#      # set the metadata of the resulting pack's
-#      # query files to the given value
-#      #- type: set-metadata
-#      #  key: "security-severity"
-#      #  value: "9.9"
-#      #  dst: {security_queries}
-#
-#      # append the given value to all specified files
-#      - type: append
-#        value: "import TailorCustomizations"
-#        dst: "{security_queries}"
-#
-#      # clone the given repository, check out the given
-#      # branch and copy the files specified to
-#      # the resulting pack's root directory
-#      - type: github-copy
-#        repository: "zbazztian/gh-tailor"
-#        revision: main
-#        src: "bases/java/tailor"
-#        dst: "/"
-#
-#      # copy all files in the tailor project's root directory
-#      # to the resulting pack's root directory
-#      - type: copy
-#        src: "/*"
-#        dst: "/"
-#  ''').format(
-#    base_name=base_name or ('codeql/%s-queries' % lang),
-#    base_version='*',
-#    out_name=out_name or 'scope/packname',
-#    out_version='0.0.0',
-#    default_suite='codeql-suites/%s-code-scanning.qls' % lang,
-#    security_queries=make_file_pattern()
-#  )
+
+def lang_security_query_dir(lang):
+  if lang == 'csharp':
+    return 'Security Features'
+  elif lang == 'ruby':
+    return 'queries/security'
+  elif lang in ['java', 'cpp', 'python', 'javascript', 'go']:
+    return 'Security'
+  else:
+    error('Unsupported language "%s"!' % lang)
 
 
 def hashstr(s):
