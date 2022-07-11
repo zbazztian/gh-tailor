@@ -99,7 +99,7 @@ def tailor_template(
     file2str(join(outdir, 'create')).format(
       basename=basename,
       outname=outname,
-      defaultsuite='codeql-suites/java-code-scanning.qls',
+      defaultsuite='codeql-suites/%s-code-scanning.qls' % lang,
       querypath1=testqlref(1),
       querypath2=testqlref(2),
       securityfolder=lang_security_query_dir(lang),
