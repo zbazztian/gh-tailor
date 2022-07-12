@@ -43,9 +43,22 @@ def get_codeql(args, location):
 
 
 def init(args):
+  lang = args.language
+  if lang is None:
+    for l in util.LANGUAGES:
+      if args.basename in ['codeql/%s-%s' % (l, n) for n in ['queries', 'all']]:
+        lang = l
+        break
+  if lang is None:
+    warning(
+      'Could not auto-detect language of resulting pack. ' +
+      'Defaulting to "java". Use --language to force the language.'
+    )
+    lang = 'java'
+
   util.tailor_template(
     args.outdir,
-    args.language,
+    lang,
     args.basename,
     args.outname
   )
@@ -261,19 +274,19 @@ def main():
     description='Create a skeleton for a tailor project in the specified directory',
   )
   sp.add_argument(
-    '--language', '-l',
-    required=True,
+    '-l', '--language',
+    required=False,
     choices=util.LANGUAGES,
-    help='Language',
+    help='The resulting package\'s desired language.',
   )
   sp.add_argument(
-    '--basename', '-b',
+    '-b', '--basename',
     required=True,
     type=mustbepackname,
     help='The name of the packet to be customized.',
   )
   sp.add_argument(
-    '--outname', '-n',
+    '-n', '--outname',
     required=True,
     type=mustbepackname,
     help='The name of the resulting package.',
