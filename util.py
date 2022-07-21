@@ -861,6 +861,21 @@ def copy2dir(srcroot, srcpattern, dstroot, dstdirpattern, hidden=False):
   return executed
 
 
+def delete_ql_meta(qlfile, key):
+  before, metadata, after = dissect_query(file2str(qlfile))
+  metadata = list(
+    filter(
+      lambda el: el[0] != key,
+      metadata
+    )
+  )
+  str2file(
+    qlfile,
+    assemble_query(before, metadata, after),
+  )
+  info('Deleted metadata key "%s" in "%s".' % (key, qlfile))
+
+
 def set_ql_meta(qlfile, key, value):
   before, metadata, after = dissect_query(file2str(qlfile))
   modified = False
@@ -871,32 +886,47 @@ def set_ql_meta(qlfile, key, value):
       break
   if not modified:
     metadata.append((key, value))
-  contents = \
-    before \
-    + '\n'.join(['/**'] + [' * @%s %s' % (k, v) for k, v in metadata] + [' */']) \
-    + after
-  str2file(qlfile, contents)
+  str2file(
+    qlfile,
+    assemble_query(before, metadata, after),
+  )
   info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, qlfile))
 
 
-def dissect_query(qlstr):
-  PATTERN_METADATA = re.compile('^(.*?)(/\*\*(.*?)\*/)?(.*)$', flags=re.DOTALL)
-  PATTERN_METADATA_LINE_SEP = re.compile('^\s*\*?\s*@', flags=re.MULTILINE)
-  PATTERN_LEADING_STAR = re.compile('^\s*\*?\s*', flags=re.MULTILINE)
-  result = []
+def assemble_query(before, metadata, after):
+  return \
+    before \
+    + '\n'.join(['/**'] + [' * @%s %s' % (k, v) for k, v in metadata] + [' */']) \
+    + after
 
+
+def dissect_query(qlstr):
   # extract metadata section
-  m = PATTERN_METADATA.match(qlstr)
+  m = re.match(
+    '^(.*?)(/\*\*(.*?)\*/)?(.*)$',
+    qlstr,
+    flags=re.DOTALL
+  )
   if not m:   # there should ALWAYS be a match!
     raise Exception('Internal Error')
   before, metadata_section, after = m.group(1), m.group(3), m.group(4)
   metadata_section = metadata_section or ''
 
-  lines = PATTERN_METADATA_LINE_SEP.split(metadata_section)[1:]
+  lines = re.split(
+    '^\s*\*?\s*@',
+    metadata_section,
+    flags=re.MULTILINE,
+  )[1:]
 
+  result = []
   for l in lines:
     key, value = re.split('\s', l, maxsplit=1)
-    value = PATTERN_LEADING_STAR.sub('', value)
+    value = re.sub(
+      '^\s*\*?\s*',
+      '',
+      value,
+      flags=re.MULTILINE
+    )
     value = re.sub('\s+', ' ', value).strip()
     result.append((key, value))
 

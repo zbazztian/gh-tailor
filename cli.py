@@ -98,9 +98,14 @@ def set_pack_meta(args):
 
 
 def set_ql_meta(args):
+  if not (args.delete or args.meta):
+    error('You must set one of --meta or --delete!')
+
   for qlf in args.qlfiles:
     for k, v in args.meta:
       util.set_ql_meta(qlf, k, v)
+    for k in args.delete:
+      util.delete_ql_meta(qlf, k)
 
 
 def ql_import(args):
@@ -350,8 +355,16 @@ def main():
     '--meta', '-m',
     nargs=2,
     action='append',
-    required=True,
+    default=[],
+    required=False,
     help='The meta key and meta value to set. Repeatable.',
+  )
+  sp.add_argument(
+    '--delete', '-d',
+    action='append',
+    default=[],
+    required=False,
+    help='The meta key to delete. Repeatable.',
   )
   sp.add_argument(
     'qlfiles',
