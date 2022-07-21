@@ -871,21 +871,26 @@ def set_ql_meta(qlfile, key, value):
       break
   if not modified:
     metadata.append((key, value))
-  str2file(qlfile, assemble_query(before, metadata, after))
+  contents = \
+    before \
+    + '\n'.join(['/**'] + [' * @%s %s' % (k, v) for k, v in metadata] + [' */']) \
+    + after
+  str2file(qlfile, contents)
   info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, qlfile))
 
 
 def dissect_query(qlstr):
-  PATTERN_METADATA = re.compile('^(.*?)/\*\*(.*?)\*/(.*)$', flags=re.DOTALL)
+  PATTERN_METADATA = re.compile('^(.*?)(/\*\*(.*?)\*/)?(.*)$', flags=re.DOTALL)
   PATTERN_METADATA_LINE_SEP = re.compile('^\s*\*?\s*@', flags=re.MULTILINE)
   PATTERN_LEADING_STAR = re.compile('^\s*\*?\s*', flags=re.MULTILINE)
   result = []
 
   # extract metadata section
   m = PATTERN_METADATA.match(qlstr)
-  if not m:
-    return result
-  before, metadata_section, after = m.group(1), m.group(2), m.group(3)
+  if not m:   # there should ALWAYS be a match!
+    raise Exception('Internal Error')
+  before, metadata_section, after = m.group(1), m.group(3), m.group(4)
+  metadata_section = metadata_section or ''
 
   lines = PATTERN_METADATA_LINE_SEP.split(metadata_section)[1:]
 
@@ -896,14 +901,6 @@ def dissect_query(qlstr):
     result.append((key, value))
 
   return before, result, after
-
-
-def assemble_query(before, metadata, after):
-  md_section = '/**'
-  for k,v in metadata:
-    md_section = md_section + ('\n * @%s %s' % (k, v))
-  md_section = md_section + '\n */'
-  return before + md_section + after
 
 
 def is_qlfile(path):
