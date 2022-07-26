@@ -182,6 +182,20 @@ def publish(args):
   )
 
 
+def make_min_db(args):
+  codeql = get_codeql(args, args.db)
+  codedir = join(util.templatedir(), args.language, 'mindb')
+
+  codeql(
+    'database', 'create',
+    '--threads', '0',
+    '--language', args.language,
+    '--source-root', codedir,
+    '--command', join(codedir, 'compile'),
+    args.db,
+  )
+
+
 def mustbefile(path):
   if not isfile(path):
     error('"%s" is not a file!' % path)
@@ -233,7 +247,7 @@ def main():
   outbase.add_argument(
     '--outdir', '-o',
     type=mustnotexist,
-    help='Directory in which to store the resulting CodeQL pack',
+    help='Output directory',
   )
 
   packbase = argparse.ArgumentParser(add_help=False)
@@ -503,6 +517,25 @@ def main():
     description='Publish a compiled CodeQL pack.',
   )
   sp.set_defaults(func=publish)
+
+  sp = subparsers.add_parser(
+    'make-min-db',
+    parents=[distbase],
+    help='Create a minimal CodeQL database for test purposes.',
+    description='Create a minimal CodeQL database for test purposes.',
+  )
+  sp.add_argument(
+    '-l', '--language',
+    required=True,
+    choices=util.LANGUAGES,
+    help='The database\'s language.',
+  )
+  sp.add_argument(
+    'db',
+    type=mustnotexist,
+    help='The output directory',
+  )
+  sp.set_defaults(func=make_min_db)
 
   def print_usage(args):
     print(parser.format_usage())
