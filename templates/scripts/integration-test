@@ -6,12 +6,9 @@ db="integration_test_db"
 results="integration_test_results.csv"
 rm -rf "$db" "$results"
 
-gh codeql \
-  database create \
-  --threads 0 \
-  -l "{language}" \
-  -s integration_test_code \
-  -c "./compile" \
+gh tailor \
+  make-min-db \
+  --language "{language}" \
   "$db"
 
 gh codeql \
