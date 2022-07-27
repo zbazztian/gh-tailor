@@ -77,7 +77,7 @@ def tailor_template(
   )
   set_pack_name(
     testpack,
-    '%s-tests' % outname,
+    f'{outname}-tests',
   )
 
   str2file(
@@ -88,13 +88,13 @@ def tailor_template(
     )
   )
 
-  testqlref = lambda num: file2str(join(testpack_template, 'test_%s' % num, 'query.qlref')).strip()
+  testqlref = lambda num: file2str(join(testpack_template, f'test_{num}', 'query.qlref')).strip()
   str2file(
     join(outdir, 'create'),
     file2str(join(outdir, 'create')).format(
       basename=basename,
       outname=outname,
-      defaultsuite='codeql-suites/%s-code-scanning.qls' % lang,
+      defaultsuite=f'codeql-suites/{lang}-code-scanning.qls',
       querypath1=testqlref(1),
       querypath2=testqlref(2),
       securityfolder=lang_security_query_dir(lang),
@@ -111,7 +111,7 @@ def lang_security_query_dir(lang):
   elif lang in ['java', 'cpp', 'python', 'javascript', 'go']:
     return 'Security'
   else:
-    error('Unsupported language "%s"!' % lang)
+    error(f'Unsupported language "{lang}"!')
 
 
 def hashstr(s):
@@ -194,7 +194,7 @@ def get_pack_lang(ppath):
           '.codeql',
           'libraries',
           'codeql',
-          '%s-all' % l
+          f'{l}-all'
         )
       ):
         lang = l
@@ -238,9 +238,9 @@ def parse_version(vstr):
   if vstr == '*' or VersionInfo.isvalid(vstr[idx:]):
     return vstr
   error(
-    ('Invalid pack version: "%s". ' +
+    (f'Invalid pack version: "{vstr}". ' +
      'Only "*", match expressions or concrete versions ' +
-     '(e.g. "1.0.0") are permitted!') % vstr
+     '(e.g. "1.0.0") are permitted!')
   )
 
 
@@ -298,7 +298,7 @@ def hash_dir(dirpath):
     elif isdir(path):
       h.update(b'directory')
     else:
-      error('Unexpected file type for "%s"!' % (path))
+      error(f'Unexpected file type for "{path}"!')
 
   h = hashlib.sha1()
   for f in listdir(dirpath):
@@ -536,7 +536,7 @@ class CodeQL(Executable):
           match_cli=match_cli
         )
         if resolvedv is None:
-          error('Could not resolve %s@%s!' % (d, v))
+          error(f'Could not resolve {d}@{v}!')
         pideps[d] = resolvedv
 
     shutil.copyfile(qlpackyml(ppath), qlpackyml_backup_file)
@@ -564,7 +564,7 @@ class CodeQL(Executable):
         use_search_path=False,
         match_cli=False
       ):
-        warning('Package %s@%s already exists!' % (packname, packversion))
+        warning(f'Package {packname}@{packversion} already exists!')
         if fail:
           return 2
       else:
@@ -595,7 +595,7 @@ class CodeQL(Executable):
             '0.0.1',
           )
         )
-        info('Bumped version to "%s".' % newv)
+        info(f'Bumped version to "{newv}".')
       else:
         success()
 
@@ -607,14 +607,14 @@ class CodeQL(Executable):
         use_search_path=False,
         match_cli=False
       ):
-        info('Package %s@%s already exists.' % (packname, packversion))
+        info(f'Package {packname}@{packversion} already exists.')
         return self.autoversion(ppath, 'new', fail)
 
       else:
         success()
 
     else:
-      error('Unknown mode "%s"!' % mode)
+      error(f'Unknown mode "{mode}"!')
 
     return 0
 
@@ -724,7 +724,7 @@ class CodeQL(Executable):
   ):
     cli_version = self.get_version()
 
-    info('Downloading %s@%s...' % (pname, matchstr))
+    info(f'Downloading {pname}@{matchstr}...')
     p = self.download_pack_impl(
       pname,
       matchstr,
@@ -743,7 +743,7 @@ class CodeQL(Executable):
         return p
 
       pred = '<' + pv
-      info('Previous pack was incompatible with this CLI, downloading %s@%s instead...' % (pname, pred))
+      info(f'Previous pack was incompatible with this CLI, downloading {pname}@{pred} instead...')
       p = self.download_pack_impl(
         pname,
         pred,
@@ -846,7 +846,7 @@ def copy2dir(srcroot, srcpattern, dstroot, dstdirpattern, hidden=False):
   for srcfile in rglob(srcroot, srcpattern, hidden=hidden):
     for dstdir in dstdirs:
       if not isdir(dstdir):
-        error('"%s" is not a directory!' % dstdir)
+        error(f'"{dstdir}" is not a directory!')
       dstpath = join(dstdir, basename(srcfile))
       if isfile(srcfile):
         shutil.copyfile(srcfile, dstpath)
@@ -868,7 +868,7 @@ def delete_ql_meta(qlfile, key):
     qlfile,
     assemble_query(before, metadata, after),
   )
-  info('Deleted metadata key "%s" in "%s".' % (key, qlfile))
+  info(f'Deleted metadata key "{key}" in "{qlfile}".')
 
 
 def set_ql_meta(qlfile, key, value):
@@ -885,13 +885,13 @@ def set_ql_meta(qlfile, key, value):
     qlfile,
     assemble_query(before, metadata, after),
   )
-  info('Set metadata key "%s" to value "%s" in "%s".' % (key, value, qlfile))
+  info(f'Set metadata key "{key}" to value "{value}" in "{qlfile}".')
 
 
 def assemble_query(before, metadata, after):
   return \
     before \
-    + '\n'.join(['/**'] + [' * @%s %s' % (k, v) for k, v in metadata] + [' */']) \
+    + '\n'.join(['/**'] + [f' * @{k} {v}' for k, v in metadata] + [' */']) \
     + after
 
 
@@ -937,7 +937,7 @@ def is_qllfile(path):
 
 
 def has_import(qlfile, module):
-  PATTERN_IMPORT = re.compile('^\s*import\s+(%s).*$' % module, flags=re.MULTILINE)
+  PATTERN_IMPORT = re.compile(f'^\s*import\s+({module}).*$', flags=re.MULTILINE)
   m = PATTERN_IMPORT.search(file2str(qlfile))
   return True if m else False
 
@@ -945,7 +945,7 @@ def has_import(qlfile, module):
 def ql_import(qlfile, module):
   if not has_import(qlfile, module):
     with open(qlfile, 'a') as f:
-      f.write('\nimport %s' % module)
+      f.write(f'\nimport {module}')
 
 
 def normalize_settings(settings):
@@ -953,16 +953,16 @@ def normalize_settings(settings):
     error('The settings must be presented as a dictionary!')
   for k in settings.keys():
     if type(k) != str:
-      error('Settings keys must be strings! "%s" isn\'t.' % str(k))
+      error(f'Settings keys must be strings! "{k}" isn\'t.')
     v = settings[k]
     if type(v) == str:
       settings[k] = [v]
     elif type(v) == list:
       for i in v:
         if type(i) != str:
-          error('Settings values must either be strings or arrays of strings! "%s" is neither.' % str(v))
+          error(f'Settings values must either be strings or arrays of strings! "{v}" is neither.')
     else:
-      error('Settings values must either be strings or arrays of strings! "%s" is neither.' % str(v))
+      error(f'Settings values must either be strings or arrays of strings! "{v}" is neither.')
   return settings
 
 
@@ -998,19 +998,19 @@ def customize(ppath, settingsfile, qlfiles, priority, modules):
   usmod = 'UserSettings_%s' % hash_settings(settings)
 
   str2file(
-    join(ppath, 'tailor', '%s.qll' % usmod),
+    join(ppath, 'tailor', f'{usmod}.qll'),
     generate_settings_ql(settings, priority, usmod, modules)
   )
 
   for qlf in qlfiles:
-    ql_import(qlf, 'tailor.%s' % usmod)
+    ql_import(qlf, f'tailor.{usmod}')
 
 
 def generate_settings_ql(settings, priority, name, modules):
   keyvalues = ' or'.join(
     '\n    k = "{k}" and v = [{values}\n    ]'.format(
       k=k,
-      values=','.join('\n      "%s"' % v for v in vs)
+      values=','.join(f'\n      "{v}"' for v in vs)
     ) for k, vs in settings.items()
   )
 
@@ -1023,7 +1023,7 @@ def generate_settings_ql(settings, priority, name, modules):
       }}
     }}
   ''').format(
-    modules='\n'.join('import %s' % m for m in modules),
+    modules='\n'.join(f'import {m}' for m in modules),
     priority=priority,
     classname=name,
     keyvalues=keyvalues,

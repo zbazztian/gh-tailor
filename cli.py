@@ -38,7 +38,7 @@ def get_codeql(args, location):
     additional_packs=args.additional_packs,
     search_path=s,
   )
-  info('CodeQL distribution detected at "%s".' % (codeql.distdir))
+  info(f'CodeQL distribution detected at "{codeql.distdir}".')
   return codeql
 
 
@@ -46,7 +46,7 @@ def init(args):
   lang = args.language
   if lang is None:
     for l in util.LANGUAGES:
-      if args.basename in ['codeql/%s-%s' % (l, n) for n in ['queries', 'all']]:
+      if args.basename in [f'codeql/{l}-{n}' for n in ['queries', 'all']]:
         lang = l
         break
   if lang is None:
@@ -79,7 +79,7 @@ def download(args):
   if pack:
     info('Successfully downloaded pack!')
   else:
-    error('Pack "%s@%s" not found in registry!' % (args.name, args.version))
+    error(f'Pack "{args.name}@{args.version}" not found in registry!')
 
   if args.outdir:
     shutil.copytree(
@@ -198,43 +198,43 @@ def make_min_db(args):
 
 def mustbefile(path):
   if not isfile(path):
-    error('"%s" is not a file!' % path)
+    error(f'"{path}" is not a file!')
   return path
 
 
 def mustbeqlorqllfile(path):
   if not (util.is_qlfile(path) or util.is_qllfile(path)):
-    error('"%s" is not a CodeQL query or library file!' % path)
+    error(f'"{path}" is not a CodeQL query or library file!')
   return path
 
 
 def mustbeqlfile(path):
   if not util.is_qlfile(path):
-    error('"%s" is not a CodeQL query file!' % path)
+    error(f'"{path}" is not a CodeQL query file!')
   return path
 
 
 def mustnotexist(path):
   if exists(path):
-    error('File or directory "%s" already exists!' % path)
+    error(f'File or directory "{path}" already exists!')
   return path
 
 
 def mustbepack(path):
   if not util.is_pack(path):
-    error('Path "%s" is not a (Code)QL pack!' % path)
+    error(f'Path "{path}" is not a (Code)QL pack!')
   return path
 
 
 def mustbedist(path):
   if not util.is_dist(path):
-    error('Path "%s" is not a CodeQL distribution!' % path)
+    error(f'Path "{path}" is not a CodeQL distribution!')
   return path
 
 
 def mustbepackname(string):
   if not string or len(string.split('/')) != 2:
-    error('"%s" is not a valid package name! It must be of the form "scope/name".' % string)
+    error(f'"{string}" is not a valid package name! It must be of the form "scope/name".')
   return string
 
 
@@ -553,4 +553,4 @@ def cleanup():
 try:
   main()
 except CalledProcessError as e:
-  error('Subprocess "%s" failed with code "%s"!' % (e.cmd, e.returncode))
+  error(f'Subprocess "{e.cmd}" failed with code "{e.returncode}"!')
