@@ -70,11 +70,6 @@ def tailor_template(
     testpack
   )
 
-  shutil.copytree(
-    join(templatedir(), lang, 'integration_test_code'),
-    join(outdir, 'integration_test_code')
-  )
-
   pack_add_dep(
     testpack,
     outname,
