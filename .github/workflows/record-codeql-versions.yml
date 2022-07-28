@@ -26,7 +26,7 @@ jobs:
       with:
         languages: java
 
-    - name: build
+    - name: record
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
