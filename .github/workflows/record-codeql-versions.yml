@@ -1,4 +1,4 @@
-name: "CodeQL"
+name: "Record CodeQL Versions"
 
 on:
   workflow_dispatch:
