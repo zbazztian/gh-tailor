@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from urllib.request import (
   Request,
   HTTPRedirectHandler,
@@ -7,6 +9,7 @@ from urllib.request import (
   HTTPErrorProcessor,
   UnknownHandler,
 )
+import sys
 import os
 import json
 from fnmatch import fnmatch
@@ -15,7 +18,7 @@ from datetime import datetime
 
 RESULTS_PER_PAGE = 100
 API_URL = 'https://api.github.com'
-REPO_ID = 'zbazztian/commons-io-public'
+REPO_ID = 'zbazztian/gh-tailor'
 RELEASE_ID = 'codeql-versions-for-actions'
 
 
@@ -191,4 +194,4 @@ def upload_latest_version(version: str) -> None:
   upload_asset(r, assetname, version.encode('utf-8'))
 
 
-upload_latest_version('1.2.25')
+upload_latest_version(sys.argv[1])
