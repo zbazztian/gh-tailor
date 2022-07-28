@@ -182,7 +182,7 @@ def upload_asset(release, assetname, data):
 
 def upload_latest_version(version: str) -> None:
   r = ensure_release(RELEASE_ID)
-  assetname = f'version-{now()}.txt'
+  assetname = f'version-{now()}'
   for a in r['assets']:
     if assetname == a['name']:
       info(f'"{assetname}" was previously uploaded. Nothing left to do.')
