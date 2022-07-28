@@ -2,6 +2,8 @@ name: "Record CodeQL Versions"
 
 on:
   workflow_dispatch:
+  push:
+    branches: [master]
   schedule:
     - cron: '35 14 * * 2'
 
@@ -11,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
-      contents: read
+      contents: write
       security-events: write
 
     steps:
