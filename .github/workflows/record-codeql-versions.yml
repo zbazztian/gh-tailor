@@ -3,7 +3,7 @@ name: "Record CodeQL Versions"
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
   schedule:
     - cron: '35 14 * * 2'
 
