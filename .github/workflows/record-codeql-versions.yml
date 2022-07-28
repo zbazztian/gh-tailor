@@ -25,6 +25,8 @@ jobs:
         languages: java
 
     - name: build
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
        version="$("${{ steps.downloadcli.outputs.codeql-path }}" version -q)"
        echo "$version"
