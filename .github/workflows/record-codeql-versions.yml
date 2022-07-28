@@ -31,5 +31,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
        version="$("${{ steps.downloadcli.outputs.codeql-path }}" version -q)"
-       echo "$version"
        ./record-codeql-version "$version"
