@@ -17,12 +17,12 @@ gh tailor \
 #gh tailor \
 #  set-ql-meta \
 #  -m "security-severity" "9.0" \
-#  pack/{querypath1}
+#  "pack/{querypath1}"
 
 # inject customizations
 cat <<EOF | xargs gh tailor customize pack settings.yml
-  pack/{querypath1}
-  pack/{querypath2}
+  "pack/{querypath1}"
+  "pack/{querypath2}"
 EOF
 
 # alternatively, one may also include arbitrary modules into a set of queries:

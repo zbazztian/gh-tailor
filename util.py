@@ -46,6 +46,10 @@ def templatedir():
   return join(scriptdir(), 'templates')
 
 
+def commondir():
+  return join(templatedir(), 'common')
+
+
 def tailor_template(
   outdir,
   lang, basename,
@@ -53,7 +57,7 @@ def tailor_template(
 ):
 
   shutil.copytree(
-    join(templatedir(), 'scripts'),
+    join(commondir(), 'scripts'),
     outdir
   )
 
@@ -980,7 +984,7 @@ def customize(ppath, settingsfile, qlfiles, priority, modules):
     settings = normalize_settings(yaml.safe_load(f))
 
   shutil.copytree(
-    join(dirname(__file__), 'ql', 'common', 'tailor'),
+    join(commondir(), 'ql', 'tailor'),
     join(ppath, 'tailor'),
     dirs_exist_ok=True
   )
@@ -988,7 +992,7 @@ def customize(ppath, settingsfile, qlfiles, priority, modules):
   if modules is None:
     modules = ['tailor.Customizations']
     shutil.copytree(
-      join(dirname(__file__), 'ql', get_pack_lang(ppath), 'tailor'),
+      join(templatedir(), get_pack_lang(ppath), 'ql', 'tailor'),
       join(ppath, 'tailor'),
       dirs_exist_ok=True
     )

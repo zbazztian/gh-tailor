@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+msbuild \
+  test.csproj \
+  /p:UseSharedCompilation=false \
+  /t:rebuild \
+  /p:MvcBuildViews=true

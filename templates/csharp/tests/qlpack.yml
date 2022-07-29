@@ -1,0 +1,3 @@
+groups: [csharp, test]
+extractor: csharp
+tests: .
