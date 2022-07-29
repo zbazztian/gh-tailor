@@ -1,5 +1,0 @@
-name: "CodeQL config"
-disable-default-queries: true
-packs:
-  java:
-    - zbazztian/java-local-queries:codeql-suites/java-security-and-quality.qls
