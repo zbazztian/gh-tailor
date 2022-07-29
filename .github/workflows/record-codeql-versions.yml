@@ -2,8 +2,8 @@ name: "Record CodeQL Versions"
 
 on:
   workflow_dispatch:
-#  push:
-#    branches: [main]
+  push:
+    branches: [main]
   schedule:
     - cron: '0 */6 * * *'
 
@@ -31,4 +31,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
        version="$("${{ steps.downloadcli.outputs.codeql-path }}" version -q)"
-       ./record-codeql-version "$version"
+       ./cliver.py "${{ github.repository }}" "codeql-versions-on-actions" "$version"

@@ -18,8 +18,6 @@ from datetime import datetime
 
 RESULTS_PER_PAGE = 100
 API_URL = 'https://api.github.com'
-REPO_ID = 'zbazztian/gh-tailor'
-RELEASE_ID = 'codeql-versions-for-actions'
 
 
 def parse_link_header(value):
@@ -75,11 +73,11 @@ def info(msg):
 
 
 def now():
-  return datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%SZ')
+  return datetime.strftime(datetime.now(), '%Y-%m-%dT%H:%M:%S%z')
 
 
 def parse_date(datestr):
-  return datetime.strptime(datestr, '%Y-%m-%dT%H:%M:%SZ')
+  return datetime.strptime(datestr, '%Y-%m-%dT%H:%M:%S%z')
 
 
 def sort_by_created_at(releasesorassets):
@@ -91,9 +89,10 @@ def sort_by_created_at(releasesorassets):
 
 
 def default_headers():
+  token = os.environ.get('GITHUB_TOKEN', None)
   return {
-    'Authorization': f'token {os.environ["GITHUB_TOKEN"]}',
     'Accept': 'application/vnd.github.v3+json',
+    **({'Authorization': f'token {token}'} if token else {})
   }
 
 
@@ -104,17 +103,17 @@ def latest_asset(release: str, assetfilter: str):
   return None
 
 
-def latest_version(release):
+def get_latest_version(repo_id: str, release: str):
   a = latest_asset(
     release,
     'version-*'
   )
-  return read_asset(a) if a else None
+  return read_asset(repo_id, a) if a else None
 
 
-def read_asset(asset: str) -> str:
+def read_asset(repo_id: str, asset: str) -> str:
   return request(
-    f'{API_URL}/repos/{REPO_ID}/releases/assets/{asset["id"]}',
+    f'{API_URL}/repos/{repo_id}/releases/assets/{asset["id"]}',
     headers={
       **default_headers(),
       'Accept': 'application/octet-stream',
@@ -123,8 +122,8 @@ def read_asset(asset: str) -> str:
   )[2]
 
 
-def list_releases():
-  url = f'{API_URL}/repos/{REPO_ID}/releases?per_page={RESULTS_PER_PAGE}'
+def list_releases(repo_id: str):
+  url = f'{API_URL}/repos/{repo_id}/releases?per_page={RESULTS_PER_PAGE}'
 
   while True:
     _, headers, body = request(
@@ -141,21 +140,21 @@ def list_releases():
       break
 
 
-def get_release(releasefilter):
-  for r in sort_by_created_at(list_releases()):
+def get_release(repo_id: str, releasefilter: str):
+  for r in sort_by_created_at(list_releases(repo_id)):
     if fnmatch(r['tag_name'], releasefilter):
       return r
   return None
 
 
-def ensure_release(rid: str) -> str:
-  return get_release(rid) or create_release(rid, 'main')
+def ensure_release(repo_id: str, release_id: str) -> str:
+  return get_release(repo_id, release_id) or create_release(repo_id, release_id, 'main')
 
 
-def create_release(tag, revision):
+def create_release(repo_id: str, tag: str, revision: str):
   return json.loads(
     request(
-      f'{API_URL}/repos/{REPO_ID}/releases',
+      f'{API_URL}/repos/{repo_id}/releases',
       data=json.dumps({
         'tag_name': tag,
         'target_commitish': revision,
@@ -180,18 +179,19 @@ def upload_asset(release, assetname, data):
   )
 
 
-def upload_latest_version(version: str) -> None:
-  r = ensure_release(RELEASE_ID)
+def set_latest_version(repo_id: str, release_id: str, version: str) -> None:
+  r = ensure_release(repo_id, release_id)
   assetname = f'version-{now()}'
   for a in r['assets']:
     if assetname == a['name']:
       info(f'"{assetname}" was previously uploaded. Nothing left to do.')
       return
-  if latest_version(r) == version:
+  if get_latest_version(repo_id, r) == version:
     info(f'Latest version did not change ({version}). Nothing left to do.')
     return
   info(f'Setting newest version to "{version}".')
   upload_asset(r, assetname, version.encode('utf-8'))
 
 
-upload_latest_version(sys.argv[1])
+if __name__ == '__main__':
+  set_latest_version(sys.argv[1], sys.argv[2], sys.argv[3])

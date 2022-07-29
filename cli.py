@@ -12,6 +12,7 @@ import shutil
 import tarfile
 import atexit
 from subprocess import CalledProcessError
+import cliver
 
 
 def get_codeql(args, location):
@@ -196,6 +197,18 @@ def make_min_db(args):
   )
 
 
+def actions_cli_version(args):
+  print(
+    cliver.get_latest_version(
+      args.repository,
+      cliver.ensure_release(
+        args.repository,
+        args.release,
+      )
+    )
+  )
+
+
 def mustbefile(path):
   if not isfile(path):
     error(f'"{path}" is not a file!')
@@ -220,22 +233,28 @@ def mustnotexist(path):
   return path
 
 
+def mustbepackname(string):
+  if not string or len(string.split('/')) != 2:
+    error(f'"{string}" is not a valid package name! It must be of the form "scope/name".')
+  return string
+
+
 def mustbepack(path):
   if not util.is_pack(path):
     error(f'Path "{path}" is not a (Code)QL pack!')
   return path
 
 
+def mustberepoid(string):
+  if not string or len(string.split('/')) != 2:
+    error(f'"{string}" is not a valid repository id! It must be of the form "owner/name".')
+  return string
+
+
 def mustbedist(path):
   if not util.is_dist(path):
     error(f'Path "{path}" is not a CodeQL distribution!')
   return path
-
-
-def mustbepackname(string):
-  if not string or len(string.split('/')) != 2:
-    error(f'"{string}" is not a valid package name! It must be of the form "scope/name".')
-  return string
 
 
 def main():
@@ -536,6 +555,25 @@ def main():
     help='The output directory',
   )
   sp.set_defaults(func=make_min_db)
+
+  sp = subparsers.add_parser(
+    'actions-cli-version',
+    help='Retrieve the version of the CodeQL CLI currenty installed on GitHub Actions',
+    description='Retrieve the version of the CodeQL CLI currenty installed on GitHub Actions',
+  )
+  sp.add_argument(
+    '-r', '--repository',
+    required=False,
+    type=mustberepoid,
+    default='zbazztian/gh-tailor',
+    help='The repository ("owner/name") from which to fetch the information.',
+  )
+  sp.add_argument(
+    '-s', '--release',
+    default='codeql-versions-on-actions',
+    help='The name of the release from which to fetch the information.',
+  )
+  sp.set_defaults(func=actions_cli_version)
 
   def print_usage(args):
     print(parser.format_usage())
