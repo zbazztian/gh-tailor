@@ -409,15 +409,16 @@ class Executable:
   def __init__(self, executable):
     self.executable = executable
 
-  def __call__(self,
-               *args,
-               outconsumer=print_to_stdout,
-               errconsumer=print_to_stdout,
-               combine_std_out_err=True,
-               inprovider=close_stdin,
-               cwd='.',
-               **kwargs):
-
+  def __call__(
+    self,
+    *args,
+    outconsumer=print_to_stdout,
+    errconsumer=print_to_stdout,
+    combine_std_out_err=True,
+    inprovider=close_stdin,
+    cwd='.',
+    **kwargs
+  ):
     outpipe = subprocess.PIPE
     errpipe = subprocess.PIPE
     if combine_std_out_err:
