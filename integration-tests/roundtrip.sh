@@ -14,7 +14,7 @@ gh tailor \
   -n "zbazztian/gh-tailor-integration-test-${lang}" \
   "$project"
 
-pushd "$project"
+cd "$project"
 
 # creation
 ./create
