@@ -7,5 +7,17 @@ if [ ! -d "pack" ]; then
   exit 1
 fi
 
-gh tailor autoversion pack
+set +e
+gh tailor autoversion --mode new-on-collision --fail pack
+res="$?"
+set -e
+
+if [ "$res" = 2 ]; then
+  echo "Nothing to publish"
+  exit 0
+elif [ "$res" != 0 ]; then
+  echo "Build failed"
+  exit 1
+fi
+
 gh tailor publish pack
