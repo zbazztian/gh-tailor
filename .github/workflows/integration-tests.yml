@@ -32,4 +32,5 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
        gh extensions install .
+       gh extensions install github/gh-codeql
        ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3
