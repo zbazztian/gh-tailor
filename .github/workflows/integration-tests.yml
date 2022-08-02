@@ -30,5 +30,4 @@ jobs:
       run: |
        gh extensions install .
        gh extensions install github/gh-codeql
-       gh codeql pack download zbazztian/gh-tailor-integration-test-java
-   #    ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3
+       ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3
