@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+here="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 lang="$1"
 n="$2"
 
@@ -12,5 +13,5 @@ topn="$(printf "$topn" | sort -u)"
 for v in $(printf "$topn"); do
   echo "Testing with version ${v}..."
   gh codeql set-version "$v"
-  ./roundtrip.sh "$lang"
+  "${here}/roundtrip.sh" "$lang"
 done
