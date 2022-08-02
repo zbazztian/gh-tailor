@@ -21,7 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'java', 'javascript', 'python', 'csharp' ]
+        language: [ 'java' ]
+        #language: [ 'java', 'javascript', 'python', 'csharp' ]
 
     steps:
     - name: Checkout repository
@@ -33,4 +34,5 @@ jobs:
       run: |
        gh extensions install .
        gh extensions install github/gh-codeql
-       ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3
+       gh codeql pack download zbazztian/gh-tailor-integration-test-java
+   #    ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3
