@@ -23,7 +23,8 @@ gh tailor init \
   customized-java-queries
 ```
 
-The above will create a template project with three scripts:
+The above will create a template project with four scripts:
 * `create` will create a new pack with the name given.
 * `test` will run the unit tests for this pack.
+* `integration-test` will run the integration tests for this pack.
 * `publish` will publish the pack (and optionally bump its version number).
