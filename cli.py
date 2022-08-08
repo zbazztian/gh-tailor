@@ -157,6 +157,7 @@ def test(args):
     codeql = get_codeql(args, tp)
     codeql(
       'test', 'run',
+      '--show-extractor-output',
       '--additional-packs', args.pack,
       '--additional-packs', join(args.pack, '.codeql', 'libraries'),
       tp
