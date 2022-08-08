@@ -201,7 +201,11 @@ def make_min_db(args):
     '--threads', '0',
     '--language', args.language,
     '--source-root', codedir,
-    '--command', join(codedir, 'compile'),
+    *(
+      ['--command', join(codedir, 'compile')] \
+      if args.language in util.compiled_langs() \
+      else []
+    ),
     args.db,
   )
 

@@ -25,6 +25,14 @@ LANGUAGES = [
 ]
 
 
+def compiled_langs():
+  return [
+    'java',
+    'cpp',
+    'csharp'
+  ]
+
+
 def searchpath_append(searchpath, appendme):
   return (searchpath + ':' + appendme) if searchpath else appendme
 
