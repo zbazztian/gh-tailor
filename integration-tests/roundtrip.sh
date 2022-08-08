@@ -15,17 +15,9 @@ gh tailor \
   "$project"
 
 cd "$project"
-
-# creation
 ./create
-
-# tests
-#./integration-test
-#./test || echo "fails because there are not .expected files"
-#gh codeql test accept tests
-#./test
-
-# uploading
+./integration-test
+./test
 ./publish
 
 # The following autoversion should fail. If it
