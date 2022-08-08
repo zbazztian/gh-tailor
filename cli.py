@@ -186,7 +186,15 @@ def publish(args):
 
 def make_min_db(args):
   codeql = get_codeql(args, args.db)
-  codedir = join(util.templatedir(), args.language, 'mindb')
+  codedir = join(tempdir, 'mindb')
+  shutil.copytree(
+    join(
+      util.templatedir(),
+      args.language,
+      'mindb'
+    ),
+    codedir,
+  )
 
   codeql(
     'database', 'create',

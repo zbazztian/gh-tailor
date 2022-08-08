@@ -1,0 +1,3 @@
+groups: [cpp, test]
+extractor: cpp
+tests: .
