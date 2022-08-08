@@ -2,7 +2,7 @@
 
 A tool for customizing CodeQL packs.
 
-This is similar in spirit to advanced-security/codeql-bundle-action but differs in a variety of ways:
+This is similar in spirit to https://github.com/advanced-security/codeql-bundle-action but differs in a variety of ways:
 
 1. It only creates customized CodeQL packs as opposed to an entire CodeQL distribution.
 2. On average, compile times are significantly faster, since most users will only customize a small subset of all queries. This is in contrast to the aforementioned bundle action, which compiles all queries and libraries everytime.
@@ -10,7 +10,7 @@ This is similar in spirit to advanced-security/codeql-bundle-action but differs 
 4. It is fully-automated in the sense that it tests, compiles, versions and publishes your CodeQL query packs. Specifically, the versioning aspect is different from the bundle approach.
 5. It includes various small command line utilities which can be used for pack customization and other tasks.
 
-ghas-trials/debug-queries is an end-to-end example which uses this tool to create CodeQL debug queries.
+https://github.com/ghas-trials/debug-queries/ is an end-to-end example which uses this tool to create CodeQL debug queries.
 
 ### Installation ###
 
