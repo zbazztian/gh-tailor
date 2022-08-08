@@ -74,8 +74,8 @@ def tailor_template(
     join(outdir, 'settings.yml')
   )
 
-  testpack_template = join(templatedir(), lang, 'tests')
-  testpack = join(outdir, 'tests')
+  testpack_template = join(templatedir(), lang, 'unit-tests')
+  testpack = join(outdir, 'unit-tests')
 
   shutil.copytree(
     testpack_template,
