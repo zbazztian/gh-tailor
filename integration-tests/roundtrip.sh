@@ -17,7 +17,7 @@ gh tailor \
 cd "$project"
 ./create
 ./integration-test
-./test
+./unit-test
 ./publish
 
 # The following autoversion should fail. If it
