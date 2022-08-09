@@ -15,7 +15,7 @@ from subprocess import CalledProcessError
 import cliver
 
 
-def get_codeql(args, location):
+def get_codeql(args, location=None):
   info('Detecting CodeQL distribution...')
   distdir = args.dist or \
             util.codeql_dist_from_path_env() or \
@@ -32,7 +32,7 @@ def get_codeql(args, location):
       lambda p: p is not None,
       [util.search_manifest_dir(location), args.search_path]
     )
-  )
+  ) if location else None
 
   codeql = util.CodeQL(
     distdir,
@@ -41,6 +41,10 @@ def get_codeql(args, location):
   )
   info(f'CodeQL distribution detected at "{codeql.distdir}".')
   return codeql
+
+
+def codeql(args):
+  get_codeql(args)(*args.codeqlargs)
 
 
 def init(args):
@@ -587,6 +591,19 @@ def main():
     help='The name of the release from which to fetch the information.',
   )
   sp.set_defaults(func=actions_cli_version)
+
+  sp = subparsers.add_parser(
+    'codeql',
+    parents=[distbase],
+    help='Run a detected codeql executable.',
+    description='Run a detected codeql executable.',
+  )
+  sp.add_argument(
+    'codeqlargs',
+    nargs='*',
+    help='codeql invocation arguments.',
+  )
+  sp.set_defaults(func=codeql)
 
   def print_usage(args):
     print(parser.format_usage())
