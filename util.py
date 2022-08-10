@@ -98,8 +98,6 @@ def tailor_template(
     join(outdir, 'Makefile'),
     file2str(join(outdir, 'Makefile')).format(
       basename=basename,
-      outname=outname,
-      language=lang,
     )
   )
 

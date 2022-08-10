@@ -1,3 +1,5 @@
+import yaml
+import json
 import argparse
 import util
 from util import error, warning, info
@@ -90,6 +92,17 @@ def download(args):
     shutil.copytree(
       pack,
       args.outdir,
+    )
+
+
+def yaml2json(args):
+  with open(args.yamlfile, 'r') as f:
+    print(
+      json.dumps(
+        yaml.safe_load(f),
+        sort_keys=True,
+        indent=2,
+      )
     )
 
 
@@ -371,6 +384,18 @@ def main():
     help='The version of the package to download.',
   )
   sp.set_defaults(func=download)
+
+  sp = subparsers.add_parser(
+    'yaml2json',
+    help='Parse a yaml file and output its json equivalent.',
+    description='Parse a yaml file and output its json equivalent.',
+  )
+  sp.add_argument(
+    'yamlfile',
+    type=mustbefile,
+    help='The yaml file to parse.',
+  )
+  sp.set_defaults(func=yaml2json)
 
   sp = subparsers.add_parser(
     'set-pack-meta',

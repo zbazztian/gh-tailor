@@ -5,8 +5,6 @@ utest_states := $(patsubst %,$(utest_statedir)/%,$(utests))
 itest_db := $(statedir)/itest.db
 itest_state := $(statedir)/itest.csv
 base_pack_name := {basename}
-out_pack_name := {outname}
-language := {language}
 
 compile: pack
 
@@ -37,10 +35,11 @@ $(utest_statedir)/%: unit-tests/% unit-tests/%/* pack | $(statedir)
 		"unit-tests/$(@F)"
 	touch "$@"
 
-$(itest_db): | $(statedir)
+$(itest_db): pack | $(statedir)
 	gh \
 		tailor make-min-db \
-		--language "$(language)" \
+		--language \
+		"$$(gh tailor yaml2json pack/qlpack.yml | jq -r '.extractor')" \
 		"$@"
 
 $(itest_state): pack $(itest_db)
@@ -51,7 +50,7 @@ $(itest_state): pack $(itest_db)
 		--format csv \
 		--output "$@" \
 		"$(itest_db)" \
-		"$(out_pack_name)"
+		"$$(gh tailor yaml2json pack/qlpack.yml | jq -r '.name')"
 
 unit-test: $(utest_states)
 
