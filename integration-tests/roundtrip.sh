@@ -15,10 +15,18 @@ gh tailor \
   "$project"
 
 cd "$project"
-./create
-./integration-test
-./unit-test
-./publish
+
+make download
+make download
+
+make compile
+make pack
+
+make integration-test
+make unit-test
+make test
+
+make publish
 
 # The following autoversion should fail. If it
 # doesn't it is a bug and will fail the script.

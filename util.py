@@ -69,11 +69,6 @@ def tailor_template(
     outdir
   )
 
-  shutil.copyfile(
-    join(templatedir(), lang, 'settings.yml'),
-    join(outdir, 'settings.yml')
-  )
-
   testpack_template = join(templatedir(), lang, 'unit-tests')
   testpack = join(outdir, 'unit-tests')
 
@@ -93,8 +88,16 @@ def tailor_template(
   )
 
   str2file(
-    join(outdir, 'integration-test'),
-    file2str(join(outdir, 'integration-test')).format(
+    join(outdir, 'Customizations.qll'),
+    file2str(join(outdir, 'Customizations.qll')).format(
+      language=lang,
+    )
+  )
+
+  str2file(
+    join(outdir, 'Makefile'),
+    file2str(join(outdir, 'Makefile')).format(
+      basename=basename,
       outname=outname,
       language=lang,
     )
@@ -102,9 +105,8 @@ def tailor_template(
 
   testqlref = lambda num: file2str(join(testpack_template, f'test_{num}', 'query.qlref')).strip()
   str2file(
-    join(outdir, 'create'),
-    file2str(join(outdir, 'create')).format(
-      basename=basename,
+    join(outdir, 'customize'),
+    file2str(join(outdir, 'customize')).format(
       outname=outname,
       defaultsuite=f'codeql-suites/{lang}-code-scanning.qls',
       querypath1=testqlref(1),

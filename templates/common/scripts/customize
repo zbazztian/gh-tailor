@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+gh tailor \
+  set-pack-meta \
+  --name "{outname}" \
+  --version "0.0.0" \
+  --default-suite "{defaultsuite}" \
+  stage
+
+# modify a query's metadata, e.g.: increase the security-severity
+#gh tailor \
+#  set-ql-meta \
+#  -m "security-severity" "9.0" \
+#  "stage/{querypath1}"
+
+# inject customizations into selected queries...
+mkdir stage/tailor
+cp Customizations.qll stage/tailor/
+
+cat <<EOF | xargs gh tailor ql-import -m "tailor.Customizations"
+  "stage/{querypath1}"
+  "stage/{querypath2}"
+EOF
+
+# ... or into a larger set of queries
+#find 'stage/{securityfolder}' -name '*.ql' -print0 | xargs -0 gh tailor ql-import -m "tailor.Customizations"
