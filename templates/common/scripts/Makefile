@@ -1,3 +1,5 @@
+SHELL=/bin/bash -o pipefail
+
 unit_tests := $(shell find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
 unit_logs := $(patsubst %,log/unit-tests/%,$(unit_tests))
 base_pack := "{basename}"
