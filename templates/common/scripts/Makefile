@@ -1,5 +1,3 @@
-SHELL=/bin/sh -o pipefail
-
 unit_tests := $(shell find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
 unit_logs := $(patsubst %,log/unit-tests/%,$(unit_tests))
 base_pack := "{basename}"
@@ -84,9 +82,6 @@ publish: $(unit_logs) log/integration-tests
 .PHONY: clean
 clean:
 	rm -rf \
-		basepack \
-		stage \
-		pack \
-		log \
-		inttest.db \
-		inttest.db.tmp
+		basepack stage pack \
+		inttest.db inttest.db.tmp \
+		log
