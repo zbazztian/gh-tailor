@@ -39,7 +39,7 @@ $(itest_db): pack | $(statedir)
 	gh \
 		tailor make-min-db \
 		--language \
-		"$$(gh tailor yaml2json pack/qlpack.yml | jq -r '.extractor')" \
+		"$$(gh tailor get-pack-lang pack)" \
 		"$@"
 
 $(itest_state): pack $(itest_db)

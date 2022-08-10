@@ -45,6 +45,13 @@ def get_codeql(args, location=None):
   return codeql
 
 
+def get_pack_lang(args):
+  lang = util.get_pack_lang(args.pack)
+  if lang is None:
+    sys.exit(1)
+  print(lang)
+
+
 def codeql(args):
   get_codeql(args)(*args.codeqlargs)
 
@@ -629,6 +636,16 @@ def main():
     help='codeql invocation arguments.',
   )
   sp.set_defaults(func=codeql)
+
+  sp = subparsers.add_parser(
+    'get-pack-lang',
+    parents=[packbase],
+    help='Try to determine a packs language.',
+    description='Try to determine a packs language.',
+  )
+  sp.set_defaults(func=get_pack_lang)
+
+
 
   def print_usage(args):
     print(parser.format_usage())
