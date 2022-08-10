@@ -1,89 +1,78 @@
-SHELL=/bin/bash -o pipefail
-
-unit_tests := $(shell find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
-unit_logs := $(patsubst %,log/unit-tests/%,$(unit_tests))
-base_pack := "{basename}"
-out_pack := "{outname}"
-language := "{language}"
+statedir := .state
+utests := $(shell find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
+utest_statedir := $(statedir)/unit-tests
+utest_states := $(patsubst %,$(utest_statedir)/%,$(utests))
+itest_db := $(statedir)/itest.db
+itest_state := $(statedir)/itest.csv
+base_pack_name := {basename}
+out_pack_name := {outname}
+language := {language}
 
 compile: pack
 
-log:
-	mkdir -p "$@"
+$(statedir):
+	mkdir "$@"
 
-basepack: | log
+base:
 	gh \
 		tailor download \
 		--outdir "$@" \
-		"$(base_pack)" \
-	| \
-	tee log/download
+		"$(base_pack_name)"
 
-download: basepack
+download: base
 
-pack: basepack customize
+pack: base customize
 	rm -rf stage "$@"
-	cp -r basepack stage
-	./customize | tee log/customize
-	gh tailor create -i stage | tee log/create
+	cp -r base stage
+	./customize
+	gh tailor create -i stage
 	mv stage "$@"
 
-log/unit-tests/%: unit-tests/% unit-tests/%/* pack
-	mkdir -p log/unit-tests
+$(utest_statedir)/%: unit-tests/% unit-tests/%/* pack | $(statedir)
+	mkdir -p "$(utest_statedir)"
 	gh tailor codeql -- \
 		test run \
 		--show-extractor-output \
 		--additional-packs pack:pack/.codeql/libraries/codeql \
-		"unit-tests/$(@F)" | tee "$@".failed
-	mv "$@".failed "$@"
+		"unit-tests/$(@F)"
+	touch "$@"
 
-inttest.db:
-	rm -rf "$@".tmp
+$(itest_db): | $(statedir)
 	gh \
 		tailor make-min-db \
 		--language "$(language)" \
-		"$@".tmp \
-	| \
-	tee log/inttest-db
-	mv "$@".tmp "$@"
+		"$@"
 
-log/integration-tests: pack inttest.db
+$(itest_state): pack $(itest_db)
 	gh tailor codeql -- \
 		database analyze \
 		--threads 0 \
 		--additional-packs pack \
 		--format csv \
-		--output "log/inttest-results.csv" \
-		"inttest.db" \
-		"$(out_pack)" \
-		2>&1 \
-	| \
-	tee -a "$@".failed
-	mv "$@".failed "$@"
+		--output "$@" \
+		"$(itest_db)" \
+		"$(out_pack_name)"
 
-unit-test: $(unit_logs)
+unit-test: $(utest_states)
 
-integration-test: log/integration-tests
+integration-test: $(itest_state)
 
-test: $(unit_logs) log/integration-tests
+test: $(utest_states) $(itest_state)
 
-publish: $(unit_logs) log/integration-tests
+publish: $(utest_states) $(itest_state)
 	( \
-		( \
-			gh tailor \
-				autoversion \
-				--mode new-on-collision \
-				--fail \
-				pack \
-			&& \
-			gh tailor publish pack \
-		) \
-		|| (test "$$?" = 2 && echo "Nothing left to do") \
-	) | tee "log/publish"
+		gh tailor \
+			autoversion \
+			--mode new-on-collision \
+			--fail \
+			pack \
+		&& \
+		gh tailor publish pack \
+	) \
+	|| (test "$$?" = 2 && echo "Nothing left to do") \
 
 .PHONY: clean
 clean:
 	rm -rf \
-		basepack stage pack \
-		inttest.db inttest.db.tmp \
-		log
+		base stage pack \
+		.state
