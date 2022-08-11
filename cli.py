@@ -45,11 +45,14 @@ def get_codeql(args, location=None):
   return codeql
 
 
-def get_pack_lang(args):
-  lang = util.get_pack_lang(args.pack)
-  if lang is None:
-    sys.exit(1)
-  print(lang)
+def get_pack_info(args):
+  if args.language:
+    lang = util.get_pack_lang(args.pack)
+    if lang is None:
+      error(f'Unable to determine language for "{args.pack}"!')
+    print(lang)
+  if args.name:
+    print(util.get_pack_name(args.pack))
 
 
 def codeql(args):
@@ -270,6 +273,12 @@ def mustnotexist(path):
   return path
 
 
+def mustnotexistorbeempty(path):
+  if util.isemptydir(path, ignoredotfiles=True) or not exists(path):
+    return path
+  error(f'Directory "{path}" is not empty!')
+
+
 def mustbepackname(string):
   if not string or len(string.split('/')) != 2:
     error(f'"{string}" is not a valid package name! It must be of the form "scope/name".')
@@ -368,7 +377,7 @@ def main():
   )
   sp.add_argument(
     'outdir',
-    type=mustnotexist,
+    type=mustnotexistorbeempty,
     help='A directory to create the tailor project in.',
   )
   sp.set_defaults(func=init)
@@ -515,19 +524,19 @@ def main():
   sp.set_defaults(func=customize)
 
 
-  sp = subparsers.add_parser(
-    'install',
-    parents=[distbase, packbase],
-    help='Install a (Code)QL pack\'s dependencies.',
-    description='Install a (Code)QL pack\'s dependencies.',
-  )
-  sp.add_argument(
-    '--mode', '-m',
-    required=False,
-    default='merge-update',
-    choices=['merge-update', 'update'],
-  )
-  sp.set_defaults(func=install)
+#  sp = subparsers.add_parser(
+#    'install',
+#    parents=[distbase, packbase],
+#    help='Install a (Code)QL pack\'s dependencies.',
+#    description='Install a (Code)QL pack\'s dependencies.',
+#  )
+#  sp.add_argument(
+#    '--mode', '-m',
+#    required=False,
+#    default='merge-update',
+#    choices=['merge-update', 'update'],
+#  )
+#  sp.set_defaults(func=install)
 
 
   sp = subparsers.add_parser(
@@ -544,19 +553,19 @@ def main():
   )
   sp.set_defaults(func=create)
 
-  sp = subparsers.add_parser(
-    'test',
-    parents=[distbase, packbase],
-    help='Run one or more test packs against a given pack.',
-    description='Run one or more test packs against a given pack.',
-  )
-  sp.add_argument(
-    'testpacks',
-    type=mustbepack,
-    nargs='+',
-    help='One or more CodeQL test packs.',
-  )
-  sp.set_defaults(func=test)
+#  sp = subparsers.add_parser(
+#    'test',
+#    parents=[distbase, packbase],
+#    help='Run one or more test packs against a given pack.',
+#    description='Run one or more test packs against a given pack.',
+#  )
+#  sp.add_argument(
+#    'testpacks',
+#    type=mustbepack,
+#    nargs='+',
+#    help='One or more CodeQL test packs.',
+#  )
+#  sp.set_defaults(func=test)
 
   sp = subparsers.add_parser(
     'autoversion',
@@ -638,12 +647,22 @@ def main():
   sp.set_defaults(func=codeql)
 
   sp = subparsers.add_parser(
-    'get-pack-lang',
+    'get-pack-info',
     parents=[packbase],
-    help='Try to determine a packs language.',
-    description='Try to determine a packs language.',
+    help='Print information about a pack.',
+    description='Print information about a pack.',
   )
-  sp.set_defaults(func=get_pack_lang)
+  sp.add_argument(
+    '-l', '--language',
+    action='store_true',
+    help='Try to determine the pack\'s language and print it.',
+  )
+  sp.add_argument(
+    '-n', '--name',
+    action='store_true',
+    help='Print the pack\'s name.',
+  )
+  sp.set_defaults(func=get_pack_info)
 
 
 

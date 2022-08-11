@@ -37,6 +37,17 @@ def searchpath_append(searchpath, appendme):
   return (searchpath + ':' + appendme) if searchpath else appendme
 
 
+def isemptydir(directory, ignoredotfiles=False):
+  return isdir(directory) and not bool(
+    list(
+      filter(
+        lambda f: not ignoredotfiles or f[0] != '.',
+        os.listdir(directory)
+      )
+    )
+  )
+
+
 def clear_dir(dirpath):
   for n in os.listdir(dirpath):
     f = join(dirpath, n)
@@ -66,7 +77,8 @@ def tailor_template(
 
   shutil.copytree(
     join(commondir(), 'scripts'),
-    outdir
+    outdir,
+    dirs_exist_ok=True,
   )
 
   testpack_template = join(templatedir(), lang, 'unit-tests')
@@ -469,7 +481,7 @@ def exec_from_path_env(execname):
 
 
 def codeql_dist_from_path_env():
-  codeql = exec_from_path_env('codeql')
+  codeql = exec_from_path_env(codeql_exec_name())
   if codeql:
     rec = Recorder()
     codeql(
@@ -502,10 +514,14 @@ def codeql_dist_from_gh_codeql():
     return None
 
 
+def codeql_exec_name():
+  return 'codeql' + ("" if os.name == 'posix' else '.exe')
+
+
 class CodeQL(Executable):
 
   def __init__(self, distdir, additional_packs=None, search_path=None):
-    Executable.__init__(self, join(distdir, 'codeql'))
+    Executable.__init__(self, join(distdir, codeql_exec_name()))
     self.distdir = distdir
     self.additional_packs = additional_packs
     self.search_path = search_path
@@ -846,7 +862,7 @@ class CodeQL(Executable):
 
 def is_dist(directory):
   return (
-    isfile(join(directory, 'codeql')) and
+    isfile(join(directory, codeql_exec_name())) and
     isdir(join(directory, 'tools'))
   )
 
