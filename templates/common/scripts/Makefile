@@ -19,7 +19,7 @@ base:
 
 download: base
 
-pack: base customize
+pack: base customize Customizations.qll
 	rm -rf stage "$@"
 	cp -r base stage
 	./customize
