@@ -39,7 +39,7 @@ $(itest_db): pack | $(statedir)
 	gh \
 		tailor make-min-db \
 		--language \
-		"$$(gh tailor get-pack-lang pack)" \
+		"$$(gh tailor get-pack-info --language pack)" \
 		"$@"
 
 $(itest_state): pack $(itest_db)
@@ -50,7 +50,7 @@ $(itest_state): pack $(itest_db)
 		--format csv \
 		--output "$@" \
 		"$(itest_db)" \
-		"$$(gh tailor yaml2json pack/qlpack.yml | jq -r '.name')"
+		"$$(gh tailor get-pack-info --name pack)"
 
 unit-test: $(utest_states)
 

@@ -53,6 +53,8 @@ def get_pack_info(args):
     print(lang)
   if args.name:
     print(util.get_pack_name(args.pack))
+  if args.version:
+    print(util.get_pack_version(args.pack))
 
 
 def codeql(args):
@@ -661,6 +663,11 @@ def main():
     '-n', '--name',
     action='store_true',
     help='Print the pack\'s name.',
+  )
+  sp.add_argument(
+    '-v', '--version',
+    action='store_true',
+    help='Print the pack\'s version.',
   )
   sp.set_defaults(func=get_pack_info)
 
