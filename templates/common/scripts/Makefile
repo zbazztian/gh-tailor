@@ -36,6 +36,7 @@ $(utest_statedir)/%: unit-tests/% unit-tests/%/* pack | $(statedir)
 	touch "$@"
 
 $(itest_db): pack | $(statedir)
+	rm -rf "$@"
 	gh \
 		tailor make-min-db \
 		--language \
