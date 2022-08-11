@@ -1,5 +1,5 @@
 statedir := .state
-utests := $(shell find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
+utests := $(shell test -d unit-tests && find unit-tests/ -mindepth 1 -maxdepth 1 -type d -printf '%P\n')
 utest_statedir := $(statedir)/unit-tests
 utest_states := $(patsubst %,$(utest_statedir)/%,$(utests))
 itest_db := $(statedir)/itest.db

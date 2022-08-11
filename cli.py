@@ -24,9 +24,11 @@ def get_codeql(args, location=None):
             util.codeql_dist_from_gh_codeql()
   if not distdir:
     error(
-      "Please provide the --dist argument or make sure the 'codeql' " +
-      "executable can be found via the PATH environment variable or " +
-      "install the 'codeql' extension for 'gh' (https://github.com/github/gh-codeql)."
+      "Please make sure that either: \na) the --dist argument is " +
+      "set to a valid CodeQL cli path or \nb) that the 'codeql' " +
+      "executable can be found via the PATH environment variable or" + 
+      "\nc) install the 'codeql' extension for the 'gh' cli " +
+      "(https://github.com/github/gh-codeql)."
     )
 
   s = ':'.join(
