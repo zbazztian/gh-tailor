@@ -965,16 +965,10 @@ def is_qllfile(path):
   return isfile(path) and splitext(path)[1] == '.qll'
 
 
-def has_import(qlfile, module):
-  PATTERN_IMPORT = re.compile(f'^\s*import\s+({module}).*$', flags=re.MULTILINE)
-  m = PATTERN_IMPORT.search(file2str(qlfile))
-  return True if m else False
-
-
 def ql_import(qlfile, module):
-  if not has_import(qlfile, module):
-    with open(qlfile, 'a') as f:
-      f.write(f'\nimport {module}')
+  content_hash = hashstr(file2str(qlfile))
+  with open(qlfile, 'a') as f:
+    f.write(f'\nimport {module} as hiddentailorimports{content_hash}')
 
 
 def normalize_settings(settings):
