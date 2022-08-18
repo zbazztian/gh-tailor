@@ -143,7 +143,11 @@ def set_ql_meta(args):
 def ql_import(args):
   for qlf in args.qlfiles:
     for m in args.modules:
-      util.ql_import(qlf, m)
+      util.ql_import(
+        qlf,
+        m,
+        visible=args.visible
+      )
 
 
 def customize(args):
@@ -482,6 +486,12 @@ def main():
     metavar='module',
     required=True,
     help='The name of the fully-qualified module to import. Repeatable.',
+  )
+  sp.add_argument(
+    '--visible', '-a',
+    action='store_true',
+    required=False,
+    help='The imported symbols will be visible in the target module, instead of being hidden (default).',
   )
   sp.add_argument(
     'qlfiles',

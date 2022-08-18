@@ -965,10 +965,15 @@ def is_qllfile(path):
   return isfile(path) and splitext(path)[1] == '.qll'
 
 
-def ql_import(qlfile, module):
-  content_hash = hashstr(file2str(qlfile))
+def ql_import(qlfile, module, visible=False):
+  if visible:
+    suffix = ''
+  else:
+    content_hash = hashstr(file2str(qlfile))
+    suffix = f' as hiddentailorimports{content_hash}'
+
   with open(qlfile, 'a') as f:
-    f.write(f'\nimport {module} as hiddentailorimports{content_hash}')
+    f.write(f'\nimport {module}{suffix}')
 
 
 def normalize_settings(settings):
