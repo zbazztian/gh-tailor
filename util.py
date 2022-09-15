@@ -437,7 +437,7 @@ class Executable:
     combine_std_out_err=True,
     inprovider=close_stdin,
     cwd='.',
-    **kwargs
+    env=None,
   ):
     outpipe = subprocess.PIPE
     errpipe = subprocess.PIPE
@@ -454,6 +454,7 @@ class Executable:
       stderr=errpipe,
       stdin=inpipe,
       cwd=cwd,
+      env=env,
     ) as proc:
 
       commandstr = ' '.join(command)
@@ -491,8 +492,44 @@ def codeql_dist_from_path_env():
       outconsumer=rec
     )
     return json.loads(''.join(rec.lines))['unpackedLocation']
+  return None
+
+
+def gh_token():
+  gh = exec_from_path_env('gh')
+  if gh:
+    try:
+      rec = Recorder()
+      gh(
+        'auth',
+        'status',
+        '--show-token',
+        combine_std_out_err=True,
+        outconsumer=rec
+      )
+      m = re.match(
+        '^.*Token: ([^\s]+).*$',
+        ''.join(rec.lines),
+        flags=re.DOTALL
+      )
+      if m:
+        return m.group(1)
+    except CalledProcessError:
+      pass
+  return None
+
+
+def env_with_token():
+  env = os.environ.copy()
+  token = env.get('GITHUB_TOKEN')
+  if not token:
+    info('Environment variable "GITHUB_TOKEN" is not set. Attempting to use token of the "gh" cli...')
+    token = gh_token()
+  if token:
+    env['GITHUB_TOKEN'] = token
   else:
-    return None
+    warning('Unable to get a valid "GITHUB_TOKEN", please set it manually if needed.')
+  return env
 
 
 def codeql_dist_from_gh_codeql():
@@ -509,9 +546,8 @@ def codeql_dist_from_gh_codeql():
       )
       return json.loads(''.join(rec.lines))['unpackedLocation']
     except CalledProcessError:
-      return None
-  else:
-    return None
+      pass
+  return None
 
 
 def codeql_exec_name():
@@ -821,7 +857,8 @@ class CodeQL(Executable):
         packname + '@' + matchstr,
         combine_std_out_err=False,
         errconsumer=errgobbler,
-        outconsumer=rec
+        outconsumer=rec,
+        env=env_with_token(),
       )
       j = json.loads(''.join(rec.lines))
       latestv = None
