@@ -1,0 +1,33 @@
+name: "Integration Tests on MacOS"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Test
+    runs-on: macos-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - 'java'
+          - 'javascript'
+          - 'python'
+          - 'csharp'
+          - 'ruby'
+          - 'go'
+          - 'cpp'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: test
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+       gh extensions install .
+       gh extensions install github/gh-codeql
+       ./integration-tests/iterate-cli-versions.sh "${{ matrix.language }}" 3

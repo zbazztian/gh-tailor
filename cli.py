@@ -215,7 +215,8 @@ def publish(args):
   codeql(
     'pack', 'publish',
     '-vv',
-    '--file', out
+    '--file', out,
+    env=util.env_with_token(),
   )
 
 
