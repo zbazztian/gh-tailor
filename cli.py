@@ -376,7 +376,7 @@ def main():
     '-b', '--basename',
     required=True,
     type=mustbepackname,
-    help='The name of the packet to be customized.',
+    help='The name of the pack to be customized.',
   )
   sp.add_argument(
     '-n', '--outname',
