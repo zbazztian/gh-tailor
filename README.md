@@ -32,10 +32,10 @@ gh tailor init \
   customized-java-queries
 ```
 
-The above will create a project with four scripts:
-* `create` will create a new pack with the name given.
-* `unit-test` will run the unit tests for this pack.
-* `integration-test` will run the integration tests for this pack.
-* `publish` will publish the pack (and optionally bump its version number).
+The above will create a project with several files, among which:
+* The `Makefile` contains various targets, such as `clean`, `download`, `compile`, `unit-test`, `integration-test`, `test` and `publish`,
+* `customize` contains all the modifications one wants to make to the original pack,
+* `Customizations.qll` holds some of the modifications you want to inject into selected queries and
+* the `unit-tests` directory holds stub test cases that you can extend.
 
 You can add your customization code to any of the scripts. Most likely, however, you will only need to modify the `create` script.
