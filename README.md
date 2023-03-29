@@ -15,7 +15,7 @@ https://github.com/ghas-trials/debug-queries/ is an end-to-end example which use
 ### Installation ###
 
 ```sh
-gh extensions install "zbazztian/gh-tailor"
+gh extensions install "advanced-security/gh-tailor"
 
 # optional but recommended:
 gh extensions install "github/gh-codeql"
@@ -28,7 +28,7 @@ The `github/gh-codeql` extension is optional, but makes using Tailor more conven
 ```sh
 gh tailor init \
   -b "codeql/java-queries" \
-  -n "zbazztian/customized-java-queries" \
+  -n "advanced-security/customized-java-queries" \
   customized-java-queries
 ```
 

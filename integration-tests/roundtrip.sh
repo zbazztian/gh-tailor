@@ -11,7 +11,7 @@ gh tailor \
   init \
   -l "$1" \
   -b "codeql/${lang}-queries" \
-  -n "zbazztian/gh-tailor-integration-test-${lang}" \
+  -n "advanced-security/gh-tailor-integration-test-${lang}" \
   "$project"
 
 cd "$project"

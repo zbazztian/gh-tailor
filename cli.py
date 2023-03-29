@@ -638,7 +638,7 @@ def main():
     '-r', '--repository',
     required=False,
     type=mustberepoid,
-    default='zbazztian/gh-tailor',
+    default='advanced-security/gh-tailor',
     help='The repository ("owner/name") from which to fetch the information.',
   )
   sp.add_argument(
